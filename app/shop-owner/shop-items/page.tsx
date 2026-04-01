@@ -1,57 +1,27 @@
 // app/shop-owner/shop-items/page.tsx
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import {
-  Search,
-  Filter,
-  Plus,
-  Edit,
-  Trash2,
-  Eye,
-  Package,
-  MoreVertical,
-  X
-} from "lucide-react"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Search, Filter, Plus, Edit, Trash2, Eye, Package, MoreVertical, X } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AddProductModal } from "@/components/modal/addProductModal"
-import { Product, ProductActionModal } from "@/components/modal/ProductActionModal"
+import { ProductActionModal } from "@/components/modal/ProductActionModal"
+import { useProductsStore } from "@/stores/products/productsStore"
+import { Product } from "@/lib/api/types"
 
 export default function ShopItemsPage() {
-  const [products, setProducts] = useState<Product[]>([
-    { id: 1, name: "Wireless Headphones", sku: "WH-001", category: "Electronics", price: "$99.99", cost: "$45.00", stock: 45, status: "In Stock", description: "Premium wireless headphones with noise cancellation", salesCount: 24, createdAt: "2023-06-15" },
-    { id: 2, name: "Smart Watch", sku: "SW-002", category: "Electronics", price: "$199.99", cost: "$85.00", stock: 12, status: "Low Stock", description: "Smart watch with health monitoring features", salesCount: 18, createdAt: "2023-08-20" },
-    { id: 3, name: "Laptop Backpack", sku: "LB-003", category: "Accessories", price: "$49.99", cost: "$22.50", stock: 0, status: "Out of Stock", description: "Water-resistant laptop backpack with USB port", salesCount: 32, createdAt: "2023-07-10" },
-    { id: 4, name: "USB-C Cable", sku: "UC-004", category: "Accessories", price: "$19.99", cost: "$8.50", stock: 125, status: "In Stock", description: "High-speed USB-C charging cable, 2m length", salesCount: 87, createdAt: "2023-09-05" },
-    { id: 5, name: "Phone Case", sku: "PC-005", category: "Accessories", price: "$29.99", cost: "$12.00", stock: 87, status: "In Stock", description: "Shockproof phone case with screen protector", salesCount: 45, createdAt: "2023-05-22" },
-    { id: 6, name: "Bluetooth Speaker", sku: "BS-006", category: "Electronics", price: "$79.99", cost: "$35.00", stock: 23, status: "In Stock", description: "Portable Bluetooth speaker with 12h battery", salesCount: 29, createdAt: "2023-10-15" },
-    { id: 7, name: "Desk Lamp", sku: "DL-007", category: "Home", price: "$39.99", cost: "$18.00", stock: 8, status: "Low Stock", description: "LED desk lamp with adjustable brightness", salesCount: 16, createdAt: "2023-04-18" },
-    { id: 8, name: "Notebook Set", sku: "NS-008", category: "Stationery", price: "$24.99", cost: "$10.00", stock: 56, status: "In Stock", description: "Premium notebook set with pen holder", salesCount: 38, createdAt: "2023-03-12" },
-  ])
+
+  const { products, fetchProducts, loading } = useProductsStore()
+
+  useEffect(() => {
+    fetchProducts()
+  }, [fetchProducts])
 
   const [isAddProductModalOpen, setIsAddProductModalOpen] = useState(false)
   const [actionModalState, setActionModalState] = useState<{
@@ -72,7 +42,7 @@ export default function ShopItemsPage() {
 
   // Get unique categories for filter dropdown
   const categories = useMemo(() => {
-    const uniqueCategories = Array.from(new Set(products.map(p => p.category)))
+    const uniqueCategories = Array.from(new Set(products.map(p => p.categoryId)))
     return ["all", ...uniqueCategories]
   }, [products])
 
@@ -86,28 +56,27 @@ export default function ShopItemsPage() {
   const filteredProducts = useMemo(() => {
     return products.filter(product => {
       // Search query filter
-      const matchesSearch = searchQuery === "" || 
+      const matchesSearch = searchQuery === "" ||
         product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         product.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.category.toLowerCase().includes(searchQuery.toLowerCase())
+        product.categoryId.toLowerCase().includes(searchQuery.toLowerCase())
 
       // Category filter
-      const matchesCategory = categoryFilter === "all" || 
-        product.category === categoryFilter
+      const matchesCategory = categoryFilter === "all" ||
+        product.categoryId === categoryFilter
 
       // Status filter
-      const matchesStatus = statusFilter === "all" || 
+      const matchesStatus = statusFilter === "all" ||
         product.status === statusFilter
 
       // Stock filter
       let matchesStock = true
       if (stockFilter === "inStock") {
-        matchesStock = product.stock > 0 && product.status === "In Stock"
+        matchesStock = product.stockQty > 0 && product.status === "ACTIVE"
       } else if (stockFilter === "lowStock") {
-        matchesStock = product.stock > 0 && product.stock < 20
+        matchesStock = product.stockQty > 0 && product.stockQty < 20
       } else if (stockFilter === "outOfStock") {
-        matchesStock = product.stock === 0
+        matchesStock = product.stockQty === 0
       }
 
       return matchesSearch && matchesCategory && matchesStatus && matchesStock
@@ -123,34 +92,34 @@ export default function ShopItemsPage() {
   }
 
   // Check if any filter is active
-  const isFilterActive = searchQuery !== "" || 
-    categoryFilter !== "all" || 
-    statusFilter !== "all" || 
+  const isFilterActive = searchQuery !== "" ||
+    categoryFilter !== "all" ||
+    statusFilter !== "all" ||
     stockFilter !== "all"
 
   const handleAddProduct = (productData: any) => {
-    const newProduct: Product = {
-      id: Math.max(...products.map(p => p.id)) + 1,
-      name: productData.name,
-      sku: productData.sku,
-      category: productData.category,
-      price: `$${parseFloat(productData.price).toFixed(2)}`,
-      cost: `$${parseFloat(productData.cost).toFixed(2)}`,
-      stock: productData.stock,
-      status: productData.stock === 0 ? "Out of Stock" : 
-              productData.stock < 10 ? "Low Stock" : "In Stock",
-      description: productData.description,
-      supplier: productData.supplier,
-      barcode: productData.barcode,
-      weight: productData.weight,
-      dimensions: productData.dimensions,
-      isActive: true,
-      createdAt: new Date().toISOString().split('T')[0]
-    }
+    // const newProduct: Product = {
+    //   id: Math.max(...products.map(p => p.id)) + 1,
+    //   name: productData.name,
+    //   sku: productData.sku,
+    //   category: productData.category,
+    //   price: `$${parseFloat(productData.price).toFixed(2)}`,
+    //   cost: `$${parseFloat(productData.cost).toFixed(2)}`,
+    //   stock: productData.stock,
+    //   status: productData.stock === 0 ? "Out of Stock" :
+    //     productData.stock < 10 ? "Low Stock" : "In Stock",
+    //   description: productData.description,
+    //   supplier: productData.supplier,
+    //   barcode: productData.barcode,
+    //   weight: productData.weight,
+    //   dimensions: productData.dimensions,
+    //   isActive: true,
+    //   createdAt: new Date().toISOString().split('T')[0]
+    // }
 
-    setProducts(prev => [...prev, newProduct])
-    setIsAddProductModalOpen(false)
-    alert("Product added successfully!")
+    // setProducts(prev => [...prev, newProduct])
+    // setIsAddProductModalOpen(false)
+    // alert("Product added successfully!")
   }
 
   const handleOpenModal = (mode: 'view' | 'edit' | 'delete', product: Product) => {
@@ -170,17 +139,17 @@ export default function ShopItemsPage() {
   }
 
   const handleSaveProduct = (updatedProduct: Product) => {
-    setProducts(prev => 
-      prev.map(product => 
-        product.id === updatedProduct.id ? updatedProduct : product
-      )
-    )
+    // setProducts(prev =>
+    //   prev.map(product =>
+    //     product.id === updatedProduct.id ? updatedProduct : product
+    //   )
+    // )
     handleCloseModal()
     alert("Product updated successfully!")
   }
 
   const handleDeleteProduct = (productId: number) => {
-    setProducts(prev => prev.filter(product => product.id !== productId))
+    // setProducts(prev => prev.filter(product => product.id !== productId))
     handleCloseModal()
     alert("Product deleted successfully!")
   }
@@ -188,10 +157,10 @@ export default function ShopItemsPage() {
   // Calculate statistics based on filtered products
   const stats = useMemo(() => {
     const total = filteredProducts.length
-    const inStock = filteredProducts.filter(p => p.status === "In Stock").length
-    const lowStock = filteredProducts.filter(p => p.status === "Low Stock").length
-    const outOfStock = filteredProducts.filter(p => p.status === "Out of Stock").length
-    
+    const inStock = filteredProducts.filter(p => p.status === "ACTIVE").length
+    const lowStock = filteredProducts.filter(p => p.status === "INACTIVE").length
+    const outOfStock = 0
+
     return { total, inStock, lowStock, outOfStock }
   }, [filteredProducts])
 
@@ -394,8 +363,8 @@ export default function ShopItemsPage() {
                     <Badge variant="secondary" className="gap-1">
                       Stock: {
                         stockFilter === "inStock" ? "In Stock" :
-                        stockFilter === "lowStock" ? "Low Stock" :
-                        "Out of Stock"
+                          stockFilter === "lowStock" ? "Low Stock" :
+                            "Out of Stock"
                       }
                       <button onClick={() => setStockFilter("all")} className="ml-1">
                         <X className="h-3 w-3" />
@@ -431,7 +400,7 @@ export default function ShopItemsPage() {
               <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium mb-2">No products found</h3>
               <p className="text-muted-foreground mb-4">
-                {isFilterActive 
+                {isFilterActive
                   ? "Try adjusting your filters or search query"
                   : "No products available. Add your first product!"}
               </p>
@@ -473,25 +442,25 @@ export default function ShopItemsPage() {
                         </code>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline">{product.category}</Badge>
+                        <Badge variant="outline">{product.categoryId}</Badge>
                       </TableCell>
                       <TableCell className="font-medium">{product.price}</TableCell>
                       <TableCell className="text-muted-foreground">{product.cost}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <span>{product.stock}</span>
-                          {product.stock < 10 && product.stock > 0 && (
+                          <span>{product.stockQty}</span>
+                          {product.stockQty < 10 && product.stockQty > 0 && (
                             <span className="h-2 w-2 rounded-full bg-orange-500 animate-pulse" />
                           )}
-                          {product.stock === 0 && (
+                          {product.stockQty === 0 && (
                             <span className="h-2 w-2 rounded-full bg-red-500" />
                           )}
                         </div>
                       </TableCell>
                       <TableCell>
                         <Badge variant={
-                          product.status === "In Stock" ? "default" :
-                          product.status === "Low Stock" ? "secondary" : "destructive"
+                          product.status === "ACTIVE" ? "default" :
+                            product.status === "INACTIVE" ? "secondary" : "destructive"
                         }>
                           {product.status}
                         </Badge>
@@ -512,7 +481,7 @@ export default function ShopItemsPage() {
                               <Edit className="mr-2 h-4 w-4" />
                               Edit Product
                             </DropdownMenuItem>
-                            <DropdownMenuItem 
+                            <DropdownMenuItem
                               onClick={() => handleOpenModal('delete', product)}
                               className="text-red-600"
                             >

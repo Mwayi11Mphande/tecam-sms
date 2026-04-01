@@ -49,27 +49,28 @@ import {
   Clock,
   Users
 } from "lucide-react"
+import { Product } from "@/lib/api/types"
 
-export interface Product {
-  id: number
-  name: string
-  sku: string
-  category: string
-  price: string
-  cost: string
-  stock: number
-  status: string
-  description?: string
-  supplier?: string
-  barcode?: string
-  weight?: string
-  dimensions?: string
-  isActive?: boolean
-  createdAt?: string
-  updatedAt?: string
-  salesCount?: number
-  profitMargin?: number
-}
+// export interface Product {
+//   id: number
+//   name: string
+//   sku: string
+//   category: string
+//   price: string
+//   cost: string
+//   stock: number
+//   status: string
+//   description?: string
+//   supplier?: string
+//   barcode?: string
+//   weight?: string
+//   dimensions?: string
+//   isActive?: boolean
+//   createdAt?: string
+//   updatedAt?: string
+//   salesCount?: number
+//   profitMargin?: number
+// }
 
 type ModalMode = 'view' | 'edit' | 'delete'
 
@@ -129,14 +130,14 @@ export function ProductActionModal({
   }
 
   const handleDelete = () => {
-    if (isDeleteConfirm && deleteConfirmText === "DELETE") {
-      if (onDelete) {
-        onDelete(product.id)
-      }
-      onClose()
-    } else {
-      setIsDeleteConfirm(true)
-    }
+    // if (isDeleteConfirm && deleteConfirmText === "DELETE") {
+    //   if (onDelete) {
+    //     onDelete(product.id)
+    //   }
+    //   onClose()
+    // } else {
+    //   setIsDeleteConfirm(true)
+    // }
   }
 
   const getStatusBadgeVariant = (status: string) => {
@@ -149,8 +150,8 @@ export function ProductActionModal({
   }
 
   const calculateProfit = () => {
-    const price = parseFloat(editedProduct.price.replace('$', '')) || 0
-    const cost = parseFloat(editedProduct.cost.replace('$', '')) || 0
+    const price = parseFloat(editedProduct.price.toString().replace('$', '')) || 0
+    const cost = parseFloat(editedProduct.cost.toString().replace('$', '')) || 0
     if (cost > 0) {
       return ((price - cost) / cost * 100).toFixed(1)
     }
@@ -192,7 +193,7 @@ export function ProductActionModal({
                   {product.status}
                 </Badge>
                 <Badge variant="outline">
-                  {product.category}
+                  {product.categoryId}
                 </Badge>
               </div>
             </div>
@@ -216,7 +217,7 @@ export function ProductActionModal({
                 <Layers className="h-4 w-4 text-blue-500" />
                 <span className="text-sm">Stock</span>
               </div>
-              <div className="text-xl font-semibold">{product.stock}</div>
+              <div className="text-xl font-semibold">{product.stockQty}</div>
             </div>
             <div className="bg-muted p-3 rounded-lg">
               <div className="flex items-center gap-2">
@@ -230,10 +231,10 @@ export function ProductActionModal({
           </div>
 
           {/* Description */}
-          {product.description && (
+          {product.sku && (
             <div>
               <h4 className="font-medium mb-2">Description</h4>
-              <p className="text-muted-foreground">{product.description}</p>
+              <p className="text-muted-foreground">{product.sku}</p>
             </div>
           )}
 
@@ -253,14 +254,14 @@ export function ProductActionModal({
                 </Button>
               </div>
             </div>
-            {product.barcode && (
+            {product.sku && (
               <div>
                 <h4 className="font-medium mb-1 flex items-center gap-2">
                   <Barcode className="h-4 w-4" />
                   Barcode
                 </h4>
                 <code className="bg-muted px-2 py-1 rounded text-sm">
-                  {product.barcode}
+                  {product.sku}
                 </code>
               </div>
             )}
@@ -269,30 +270,30 @@ export function ProductActionModal({
 
         <TabsContent value="details" className="space-y-4">
           {/* Supplier Information */}
-          {product.supplier && (
+          {product.name && (
             <div>
               <h4 className="font-medium mb-2 flex items-center gap-2">
                 <Building className="h-4 w-4" />
                 Supplier Information
               </h4>
-              <p className="text-muted-foreground">{product.supplier}</p>
+              <p className="text-muted-foreground">{product.name}</p>
             </div>
           )}
 
           {/* Specifications */}
           <div className="grid grid-cols-2 gap-4">
-            {(product.weight || product.dimensions) && (
+            {(product.price || product.cost) && (
               <>
-                {product.weight && (
+                {product.price && (
                   <div>
-                    <h4 className="font-medium mb-1">Weight</h4>
-                    <p className="text-muted-foreground">{product.weight} kg</p>
+                    <h4 className="font-medium mb-1">Price</h4>
+                    <p className="text-muted-foreground">{product.price}</p>
                   </div>
                 )}
-                {product.dimensions && (
+                {product.cost && (
                   <div>
-                    <h4 className="font-medium mb-1">Dimensions</h4>
-                    <p className="text-muted-foreground">{product.dimensions}</p>
+                    <h4 className="font-medium mb-1">Cost</h4>
+                    <p className="text-muted-foreground">{product.cost}</p>
                   </div>
                 )}
               </>
@@ -305,9 +306,9 @@ export function ProductActionModal({
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <div className={`h-2 w-2 rounded-full ${
-                  product.isActive ? 'bg-green-500' : 'bg-gray-400'
+                  product.status === 'ACTIVE' ? 'bg-green-500' : 'bg-gray-400'
                 }`} />
-                <span>{product.isActive ? 'Active' : 'Inactive'}</span>
+                <span>{product.status === 'ACTIVE' ? 'Active' : 'Inactive'}</span>
               </div>
               {product.createdAt && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -328,7 +329,7 @@ export function ProductActionModal({
                 <span className="font-medium">Sales This Month</span>
               </div>
               <div className="text-2xl font-bold mt-2">
-                {product.salesCount || 0}
+                {product.price || 0}
               </div>
               <div className="text-sm text-green-500 flex items-center gap-1">
                 <TrendingUp className="h-3 w-3" />
@@ -349,7 +350,7 @@ export function ProductActionModal({
           </div>
 
           {/* Restock Alert */}
-          {product.status === "Low Stock" && (
+          {product.stockQty > 0 && (
             <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
               <div className="flex items-start gap-3">
                 <AlertTriangle className="h-5 w-5 text-orange-600 mt-0.5" />
@@ -363,7 +364,7 @@ export function ProductActionModal({
             </div>
           )}
 
-          {product.status === "Out of Stock" && (
+          {product.stockQty === 0 && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
               <div className="flex items-start gap-3">
                 <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5" />
@@ -422,8 +423,8 @@ export function ProductActionModal({
                   Category *
                 </Label>
                 <Select
-                  value={editedProduct.category}
-                  onValueChange={(value) => handleInputChange("category", value)}
+                  value={editedProduct.categoryId}
+                  onValueChange={(value) => handleInputChange("categoryId", value)}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select category" />
@@ -450,7 +451,7 @@ export function ProductActionModal({
                   type="number"
                   step="0.01"
                   min="0"
-                  value={parseFloat(editedProduct.price.replace('$', '')) || ''}
+                  value={parseFloat(editedProduct.price.toString().replace('$', '')) || ''}
                   onChange={(e) => handleInputChange("price", `$${e.target.value}`)}
                 />
               </div>
@@ -465,7 +466,7 @@ export function ProductActionModal({
                   type="number"
                   step="0.01"
                   min="0"
-                  value={parseFloat(editedProduct.cost.replace('$', '')) || ''}
+                  value={parseFloat(editedProduct.cost.toString().replace('$', '')) || ''}
                   onChange={(e) => handleInputChange("cost", `$${e.target.value}`)}
                 />
               </div>
@@ -481,8 +482,8 @@ export function ProductActionModal({
                   id="edit-stock"
                   type="number"
                   min="0"
-                  value={editedProduct.stock}
-                  onChange={(e) => handleInputChange("stock", parseInt(e.target.value) || 0)}
+                  value={editedProduct.stockQty}
+                  onChange={(e) => handleInputChange("stockQty", parseInt(e.target.value) || 0)}
                 />
               </div>
 
@@ -512,8 +513,8 @@ export function ProductActionModal({
               <Label htmlFor="edit-description">Description</Label>
               <Textarea
                 id="edit-description"
-                value={editedProduct.description || ''}
-                onChange={(e) => handleInputChange("description", e.target.value)}
+                value={editedProduct.sku || ''}
+                onChange={(e) => handleInputChange("sku", e.target.value)}
                 rows={3}
               />
             </div>
@@ -528,8 +529,8 @@ export function ProductActionModal({
                 Supplier
               </Label>
               <Select
-                value={editedProduct.supplier || ''}
-                onValueChange={(value) => handleInputChange("supplier", value)}
+                value={editedProduct.name || ''}
+                onValueChange={(value) => handleInputChange("name", value)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select supplier" />
@@ -552,8 +553,8 @@ export function ProductActionModal({
                 </Label>
                 <Input
                   id="edit-barcode"
-                  value={editedProduct.barcode || ''}
-                  onChange={(e) => handleInputChange("barcode", e.target.value)}
+                  value={editedProduct.sku || ''}
+                  onChange={(e) => handleInputChange("sku", e.target.value)}
                 />
               </div>
 
@@ -567,8 +568,8 @@ export function ProductActionModal({
                   type="number"
                   step="0.001"
                   min="0"
-                  value={editedProduct.weight || ''}
-                  onChange={(e) => handleInputChange("weight", e.target.value)}
+                  value={editedProduct.price || ''}
+                  onChange={(e) => handleInputChange("price", e.target.value)}
                 />
               </div>
             </div>
@@ -581,8 +582,8 @@ export function ProductActionModal({
               <Input
                 id="edit-dimensions"
                 placeholder="L × W × H"
-                value={editedProduct.dimensions || ''}
-                onChange={(e) => handleInputChange("dimensions", e.target.value)}
+                value={editedProduct.price || ''}
+                onChange={(e) => handleInputChange("price", e.target.value)}
               />
             </div>
 
@@ -597,8 +598,8 @@ export function ProductActionModal({
               </div>
               <Switch
                 id="edit-active"
-                checked={editedProduct.isActive}
-                onCheckedChange={(checked) => handleInputChange("isActive", checked)}
+                checked={editedProduct.status === "ACTIVE"}
+                onCheckedChange={(checked) => handleInputChange("status", checked ? "ACTIVE" : "INACTIVE")}
               />
             </div>
           </div>
@@ -626,14 +627,14 @@ export function ProductActionModal({
           </div>
           <div>
             <h4 className="font-medium">{product.name}</h4>
-            <p className="text-sm text-muted-foreground">{product.sku} • {product.category}</p>
+            <p className="text-sm text-muted-foreground">{product.sku} • {product.categoryId}</p>
           </div>
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-4">
           <div>
             <p className="text-sm text-muted-foreground">Current Stock</p>
-            <p className="font-medium">{product.stock} units</p>
+            <p className="font-medium">{product.stockQty} units</p>
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Selling Price</p>
@@ -685,7 +686,7 @@ export function ProductActionModal({
                 // In a real app, you might want to change the mode
                 // For now, we'll show an alert
                 if (confirm("Are you sure you want to delete this product?")) {
-                  if (onDelete) onDelete(product.id)
+                  if (onDelete) onDelete(Number(product.id))
                   onClose()
                 }
               }}

@@ -1,7 +1,7 @@
 // components/login-form.tsx
 "use client"
 
-import { useState } from "react"
+import { FormEvent, useState } from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -34,47 +34,39 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
+type LoginFormProps = {
+  onSubmit: (email: string, password: string) => void | Promise<void>;
+  loading?: boolean;
+  className?: string;
+};
+
 export function LoginForm({
   className,
+  onSubmit = () => {},
+  loading = false,
   ...props
-}: React.ComponentProps<"div">) {
+}: LoginFormProps) {
   const [helpDialogOpen, setHelpDialogOpen] = useState(false)
   const [contactMethod, setContactMethod] = useState<"whatsapp" | "call">("whatsapp")
   const [phoneNumber, setPhoneNumber] = useState("")
   const [message, setMessage] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
-  const handleSubmitHelp = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSubmitting(true)
-    
-    // Simulate sending request
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    
-    if (contactMethod === "whatsapp") {
-      // Format phone number (remove non-digits)
-      const cleanNumber = phoneNumber.replace(/\D/g, '')
-      const whatsappMessage = encodeURIComponent(
-        message || "Hello, I need help with my account login. Please assist me."
-      )
-      // Open WhatsApp with pre-filled message
-      window.open(`https://wa.me/${cleanNumber}?text=${whatsappMessage}`, '_blank')
-    } else {
-      // For call, just show success message (actual call would need backend)
-      alert(`Support will call you back on ${phoneNumber} shortly.`)
-    }
-    
-    setIsSubmitting(false)
-    setHelpDialogOpen(false)
-    setPhoneNumber("")
-    setMessage("")
-  }
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    console.log("onSubmit:", onSubmit);
+    onSubmit(email, password);
+  };
+
 
   return (
-    <div className={cn("flex flex-col gap-6", className)} {...props}>
+    <div className={cn("flex flex-col gap-6", className)}>
       <Card className="overflow-hidden p-0">
         <CardContent className="grid p-0 md:grid-cols-2">
-          <form className="p-6 md:p-8">
+          <form className="p-6 md:p-8" onSubmit={handleSubmit}>
             <FieldGroup>
               <div className="flex flex-col items-center gap-2 text-center">
                 <h1 className="text-2xl font-bold">Welcome back</h1>
@@ -82,24 +74,32 @@ export function LoginForm({
                   Login to your smartShop account
                 </p>
               </div>
-              
+
               <Field>
                 <FieldLabel htmlFor="email">Email</FieldLabel>
                 <Input
                   id="email"
                   type="email"
                   placeholder="m@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
                 />
               </Field>
-              
+
               <Field>
                 <div className="flex items-center">
                   <FieldLabel htmlFor="password">Password</FieldLabel>
                 </div>
-                <Input id="password" type="password" required />
+                <Input 
+                  id="password" 
+                  type="password" 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required 
+                />
               </Field>
-              
+
               <Field>
                 <Button type="submit" className="w-full">Login</Button>
               </Field>
@@ -119,7 +119,7 @@ export function LoginForm({
               <FieldSeparator className="*:data-[slot=field-separator-content]:bg-card">
                 Or continue with
               </FieldSeparator>
-              
+
               <Field className="grid grid-cols-3 gap-4">
                 <Button variant="outline" type="button" className="hover:bg-primary/5">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-4 w-4">
@@ -151,7 +151,7 @@ export function LoginForm({
               </Field>
             </FieldGroup>
           </form>
-          
+
           {/* Styled image side */}
           <div className="bg-muted relative hidden md:block overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-primary/30 via-primary/10 to-transparent z-10" />
@@ -173,7 +173,7 @@ export function LoginForm({
           </div>
         </CardContent>
       </Card>
-      
+
       <FieldDescription className="px-6 text-center text-sm text-muted-foreground">
         By clicking continue, you agree to our{" "}
         <a href="#" className="text-primary hover:underline">
@@ -197,8 +197,8 @@ export function LoginForm({
               Contact our support team. We'll get back to you as soon as possible.
             </DialogDescription>
           </DialogHeader>
-          
-          <form onSubmit={handleSubmitHelp} className="space-y-4 py-4">
+
+          <form className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>How would you like to be contacted?</Label>
               <div className="grid grid-cols-2 gap-2">

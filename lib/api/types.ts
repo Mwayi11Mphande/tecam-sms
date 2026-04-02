@@ -58,7 +58,6 @@ export type Product = {
 export type Category = {
   id: string;
   name: string;
-  isActive: boolean;
   createdAt: string;
 };
 
@@ -86,12 +85,13 @@ export type Sale = {
 // -----------------------------
 // Staff
 // -----------------------------
-
 export type Staff = {
   id: string;
-  name: string;
+  fullName: string;
   email: string;
   role: string;
+  shopId: string;
   isActive: boolean;
   createdAt: string;
+  updatedAt: string;
 };

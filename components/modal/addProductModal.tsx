@@ -39,6 +39,7 @@ import {
   Image as ImageIcon,
   AlertCircle
 } from "lucide-react"
+import { Category } from "@/lib/api/types"
 
 export interface ProductFormData {
   name: string
@@ -72,11 +73,12 @@ export interface ProductSubmitData {
 
 interface AddProductModalProps {
   isOpen: boolean
+  categories: Category[]
   onClose: () => void
   onAddProduct: (product: ProductSubmitData) => void
 }
 
-export function AddProductModal({ isOpen, onClose, onAddProduct }: AddProductModalProps) {
+export function AddProductModal({ isOpen, categories, onClose, onAddProduct }: AddProductModalProps) {
   const [formData, setFormData] = useState<ProductFormData>({
     name: "",
     sku: "",
@@ -95,20 +97,20 @@ export function AddProductModal({ isOpen, onClose, onAddProduct }: AddProductMod
 
   const [activeTab, setActiveTab] = useState("basic")
 
-  const categories = [
-    "Electronics",
-    "Accessories",
-    "Home & Kitchen",
-    "Stationery",
-    "Clothing",
-    "Food & Beverages",
-    "Health & Beauty",
-    "Sports & Outdoors",
-    "Toys & Games",
-    "Books",
-    "Automotive",
-    "Garden"
-  ]
+  // const categories = [
+  //   "Electronics",
+  //   "Accessories",
+  //   "Home & Kitchen",
+  //   "Stationery",
+  //   "Clothing",
+  //   "Food & Beverages",
+  //   "Health & Beauty",
+  //   "Sports & Outdoors",
+  //   "Toys & Games",
+  //   "Books",
+  //   "Automotive",
+  //   "Garden"
+  // ]
 
   const suppliers = [
     "TechCorp Inc.",
@@ -289,8 +291,8 @@ export function AddProductModal({ isOpen, onClose, onAddProduct }: AddProductMod
                     </SelectTrigger>
                     <SelectContent>
                       {categories.map((category) => (
-                        <SelectItem key={category} value={category}>
-                          {category}
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
                         </SelectItem>
                       ))}
                     </SelectContent>

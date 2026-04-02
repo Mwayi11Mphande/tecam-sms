@@ -10,18 +10,19 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Search, Filter, Plus, Edit, Trash2, Eye, Package, MoreVertical, X } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { AddProductModal } from "@/components/modal/addProductModal"
+import { AddProductModal, ProductSubmitData } from "@/components/modal/addProductModal"
 import { ProductActionModal } from "@/components/modal/ProductActionModal"
 import { useProductsStore } from "@/stores/products/productsStore"
 import { Product } from "@/lib/api/types"
 
 export default function ShopItemsPage() {
 
-  const { products, fetchProducts, loading } = useProductsStore()
+  const { products, categories, addProduct, fetchProducts, fetchCategories, loading } = useProductsStore()
 
   useEffect(() => {
     fetchProducts()
-  }, [fetchProducts])
+    fetchCategories()
+  }, [fetchProducts, fetchCategories])
 
   const [isAddProductModalOpen, setIsAddProductModalOpen] = useState(false)
   const [actionModalState, setActionModalState] = useState<{
@@ -41,10 +42,10 @@ export default function ShopItemsPage() {
   const [stockFilter, setStockFilter] = useState<string>("all")
 
   // Get unique categories for filter dropdown
-  const categories = useMemo(() => {
-    const uniqueCategories = Array.from(new Set(products.map(p => p.categoryId)))
-    return ["all", ...uniqueCategories]
-  }, [products])
+  // const categories = useMemo(() => {
+  //   const uniqueCategories = Array.from(new Set(products.map(p => p.categoryId)))
+  //   return ["all", ...uniqueCategories]
+  // }, [products])
 
   // Get unique statuses for filter dropdown
   const statuses = useMemo(() => {
@@ -97,29 +98,22 @@ export default function ShopItemsPage() {
     statusFilter !== "all" ||
     stockFilter !== "all"
 
-  const handleAddProduct = (productData: any) => {
-    // const newProduct: Product = {
-    //   id: Math.max(...products.map(p => p.id)) + 1,
-    //   name: productData.name,
-    //   sku: productData.sku,
-    //   category: productData.category,
-    //   price: `$${parseFloat(productData.price).toFixed(2)}`,
-    //   cost: `$${parseFloat(productData.cost).toFixed(2)}`,
-    //   stock: productData.stock,
-    //   status: productData.stock === 0 ? "Out of Stock" :
-    //     productData.stock < 10 ? "Low Stock" : "In Stock",
-    //   description: productData.description,
-    //   supplier: productData.supplier,
-    //   barcode: productData.barcode,
-    //   weight: productData.weight,
-    //   dimensions: productData.dimensions,
-    //   isActive: true,
-    //   createdAt: new Date().toISOString().split('T')[0]
-    // }
+  const handleAddProduct = async (productData: ProductSubmitData) => {
+    try {
+      await addProduct({
+        name: productData.name,
+        sku: productData.sku,
+        price: Number(productData.price),
+        cost: Number(productData.cost),
+        stockQty: productData.stock,
+        categoryId: productData.category,
+      })
 
-    // setProducts(prev => [...prev, newProduct])
-    // setIsAddProductModalOpen(false)
-    // alert("Product added successfully!")
+      setIsAddProductModalOpen(false)
+
+    } catch (error) {
+      console.error("Failed to add product", error)
+    }
   }
 
   const handleOpenModal = (mode: 'view' | 'edit' | 'delete', product: Product) => {
@@ -271,8 +265,8 @@ export default function ShopItemsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       {categories.map((category) => (
-                        <SelectItem key={category} value={category}>
-                          {category === "all" ? "All Categories" : category}
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -503,6 +497,7 @@ export default function ShopItemsPage() {
       {/* Add Product Modal */}
       <AddProductModal
         isOpen={isAddProductModalOpen}
+        categories={categories}
         onClose={() => setIsAddProductModalOpen(false)}
         onAddProduct={handleAddProduct}
       />

@@ -39,6 +39,7 @@ import {
   Edit
 } from "lucide-react"
 import { SetStateAction, useState } from "react"
+import { Staff } from "@/lib/api/types"
 
 type StaffMember = {
   id: number
@@ -60,8 +61,8 @@ interface StaffActionModalProps {
   isOpen: boolean
   onClose: () => void
   mode: ModalMode
-  staff: StaffMember
-  onSave?: (updatedStaff: StaffMember) => void
+  staff: Staff
+  onSave?: (updatedStaff: Staff) => void
   onDelete?: (staffId: number) => void
 }
 
@@ -74,11 +75,11 @@ export function StaffActionModal({
   onDelete
 }: StaffActionModalProps) {
   const [isEditing, setIsEditing] = useState(false)
-  const [editedStaff, setEditedStaff] = useState<StaffMember>(staff)
+  const [editedStaff, setEditedStaff] = useState<Staff>(staff)
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [isDeleteConfirm, setIsDeleteConfirm] = useState(false)
 
-  const handleInputChange = (field: keyof StaffMember, value: string) => {
+  const handleInputChange = (field: keyof Staff, value: string) => {
     setEditedStaff(prev => ({
       ...prev,
       [field]: value
@@ -94,7 +95,7 @@ export function StaffActionModal({
 
   const handleDelete = () => {
     if (isDeleteConfirm && onDelete) {
-      onDelete(staff.id)
+      onDelete(Number(staff.id))
       onClose()
     } else {
       setIsDeleteConfirm(true)
@@ -124,13 +125,13 @@ export function StaffActionModal({
       {/* Header with Avatar and Basic Info */}
       <div className="flex items-start gap-4">
         <Avatar className="h-20 w-20">
-          <AvatarFallback className="text-lg">{staff.avatar}</AvatarFallback>
+          {/* <AvatarFallback className="text-lg">{staff.avatar}</AvatarFallback> */}
         </Avatar>
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <h3 className="text-2xl font-semibold">{staff.name}</h3>
-            <Badge variant={staff.status === "Active" ? "default" : "secondary"}>
-              {staff.status}
+            <h3 className="text-2xl font-semibold">{staff.fullName}</h3>
+            <Badge variant={staff.isActive ? "default" : "secondary"}>
+              {staff.isActive ? "Active" : "Inactive"}
             </Badge>
           </div>
           <Badge variant="outline" className="text-sm">
@@ -156,12 +157,12 @@ export function StaffActionModal({
             </div>
             <div className="flex items-center gap-2">
               <Phone className="h-3 w-3 text-muted-foreground" />
-              <span>{staff.phone}</span>
+              <span>{staff.email}</span>
             </div>
-            {staff.address && (
+            {staff.email && (
               <div className="flex items-center gap-2">
                 <MapPin className="h-3 w-3 text-muted-foreground" />
-                <span>{staff.address}</span>
+                <span>{staff.email}</span>
               </div>
             )}
           </div>
@@ -176,25 +177,25 @@ export function StaffActionModal({
           <div className="space-y-2 pl-6">
             <div className="flex items-center gap-2">
               <CalendarIcon className="h-3 w-3 text-muted-foreground" />
-              <span>Joined: {staff.joinDate}</span>
+              <span>Joined: {staff.createdAt}</span>
             </div>
-            {staff.department && (
+            {staff.role && (
               <div className="flex items-center gap-2">
                 <Shield className="h-3 w-3 text-muted-foreground" />
-                <span>Department: {staff.department}</span>
+                <span>Department: {staff.role}</span>
               </div>
             )}
           </div>
         </div>
 
         {/* Emergency Contact (if available) */}
-        {staff.emergencyContact && (
+        {staff.email && (
           <div>
             <h4 className="font-medium mb-2 flex items-center gap-2">
               <AlertTriangle className="h-4 w-4" />
               Emergency Contact
             </h4>
-            <p className="pl-6">{staff.emergencyContact}</p>
+            <p className="pl-6">{staff.email}</p>
           </div>
         )}
       </div>
@@ -205,14 +206,14 @@ export function StaffActionModal({
     <div className="space-y-4">
       <div className="flex items-center gap-4">
         <Avatar className="h-16 w-16">
-          <AvatarFallback>{staff.avatar}</AvatarFallback>
+          <AvatarFallback>{staff.email?.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
         <div>
           <Label htmlFor="avatarInitials">Avatar Initials</Label>
           <Input
             id="avatarInitials"
-            value={editedStaff.avatar}
-            onChange={(e) => handleInputChange('avatar', e.target.value)}
+            // value={editedStaff.avatar}
+            // onChange={(e) => handleInputChange('avatar', e.target.value)}
             maxLength={2}
             className="w-20"
           />
@@ -227,8 +228,8 @@ export function StaffActionModal({
           </Label>
           <Input
             id="fullName"
-            value={editedStaff.name}
-            onChange={(e) => handleInputChange('name', e.target.value)}
+            value={editedStaff.fullName}
+            onChange={(e) => handleInputChange('fullName', e.target.value)}
           />
         </div>
 
@@ -271,16 +272,16 @@ export function StaffActionModal({
           </Label>
           <Input
             id="phone"
-            value={editedStaff.phone}
-            onChange={(e) => handleInputChange('phone', e.target.value)}
+            // value={editedStaff.phone}
+            // onChange={(e) => handleInputChange('phone', e.target.value)}
           />
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="status">Status</Label>
           <Select
-            value={editedStaff.status}
-            onValueChange={(value) => handleInputChange('status', value)}
+            // value={editedStaff.status}
+            // onValueChange={(value) => handleInputChange('status', value)}
           >
             <SelectTrigger>
               <SelectValue placeholder="Select status" />
@@ -301,8 +302,8 @@ export function StaffActionModal({
           <Input
             id="joinDate"
             type="date"
-            value={editedStaff.joinDate}
-            onChange={(e) => handleInputChange('joinDate', e.target.value)}
+            value={editedStaff.createdAt}
+            onChange={(e) => handleInputChange('createdAt', e.target.value)}
           />
         </div>
       </div>
@@ -311,8 +312,8 @@ export function StaffActionModal({
         <Label htmlFor="address">Address</Label>
         <Textarea
           id="address"
-          value={editedStaff.address || ''}
-          onChange={(e) => handleInputChange('address', e.target.value)}
+          // value={editedStaff.address || ''}
+          // onChange={(e) => handleInputChange('address', e.target.value)}
           rows={2}
         />
       </div>
@@ -321,8 +322,8 @@ export function StaffActionModal({
         <Label htmlFor="emergencyContact">Emergency Contact</Label>
         <Input
           id="emergencyContact"
-          value={editedStaff.emergencyContact || ''}
-          onChange={(e) => handleInputChange('emergencyContact', e.target.value)}
+          // value={editedStaff.emergencyContact || ''}
+          // onChange={(e) => handleInputChange('emergencyContact', e.target.value)}
         />
       </div>
     </div>
@@ -332,7 +333,7 @@ export function StaffActionModal({
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <CalendarIcon className="h-4 w-4" />
-        <h4 className="font-medium">Schedule for {staff.name}</h4>
+        <h4 className="font-medium">Schedule for {staff.fullName}</h4>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -417,10 +418,10 @@ export function StaffActionModal({
 
       <div className="flex items-center gap-3 p-4 border rounded-lg">
         <Avatar>
-          <AvatarFallback>{staff.avatar}</AvatarFallback>
+          <AvatarFallback>{staff.fullName.charAt(0)}</AvatarFallback>
         </Avatar>
         <div>
-          <h4 className="font-medium">{staff.name}</h4>
+          <h4 className="font-medium">{staff.fullName}</h4>
           <p className="text-sm text-muted-foreground">{staff.role} • {staff.email}</p>
         </div>
       </div>

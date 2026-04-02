@@ -1,7 +1,7 @@
 // app/shop-owner/staff/page.tsx
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -38,6 +38,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { StaffActionModal } from "@/components/modal/StaffActionModal"
 import { AddStaffModal } from "@/components/modal/AddStaffModal"
+import { useStaffStore } from "@/stores/staff/staffStore"
+import { Staff } from "@/lib/api/types"
 
 // Import the Add Staff Modal component
 
@@ -58,19 +60,16 @@ type StaffMember = {
 type ModalMode = 'view' | 'edit' | 'schedule' | 'delete'
 
 export default function StaffManagementPage() {
-  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([
-    { id: 1, name: "Alex Johnson", role: "Manager", email: "alex@store.com", phone: "+1 (555) 123-4567", joinDate: "2023-06-15", status: "Active", avatar: "AJ", department: "Management" },
-    { id: 2, name: "Sarah Williams", role: "Sales Associate", email: "sarah@store.com", phone: "+1 (555) 987-6543", joinDate: "2023-08-20", status: "Active", avatar: "SW", address: "123 Main St" },
-    { id: 3, name: "Mike Chen", role: "Inventory Manager", email: "mike@store.com", phone: "+1 (555) 456-7890", joinDate: "2023-07-10", status: "On Leave", avatar: "MC", emergencyContact: "+1 (555) 111-2222" },
-    { id: 4, name: "Emma Brown", role: "Cashier", email: "emma@store.com", phone: "+1 (555) 234-5678", joinDate: "2023-09-05", status: "Active", avatar: "EB" },
-    { id: 5, name: "David Wilson", role: "Assistant Manager", email: "david@store.com", phone: "+1 (555) 876-5432", joinDate: "2023-05-22", status: "Active", avatar: "DW", department: "Sales" },
-    { id: 6, name: "Lisa Martinez", role: "Sales Associate", email: "lisa@store.com", phone: "+1 (555) 345-6789", joinDate: "2023-10-15", status: "Inactive", avatar: "LM" },
-  ])
+  const { staff, fetchStaff, loading } = useStaffStore()
+
+  useEffect(() => {
+    fetchStaff()
+  }, [fetchStaff])
 
   const [actionModalState, setActionModalState] = useState<{
     isOpen: boolean
     mode: ModalMode
-    staff: StaffMember | null
+    staff: Staff | null
   }>({
     isOpen: false,
     mode: 'view',
@@ -86,7 +85,7 @@ export default function StaffManagementPage() {
     positions: ["Manager", "Sales Associate", "Inventory Manager", "Cashier", "Assistant Manager"]
   }
 
-  const handleOpenModal = (mode: ModalMode, staff: StaffMember) => {
+  const handleOpenModal = (mode: ModalMode, staff: Staff) => {
     setActionModalState({
       isOpen: true,
       mode,
@@ -102,32 +101,32 @@ export default function StaffManagementPage() {
     })
   }
 
-  const handleSaveStaff = (updatedStaff: StaffMember) => {
-    setStaffMembers(prev => 
-      prev.map(staff => 
-        staff.id === updatedStaff.id ? updatedStaff : staff
-      )
-    )
-    // Show success toast
-    alert("Staff details updated successfully!")
+  const handleSaveStaff = (updatedStaff: Staff) => {
+    // setStaffMembers(prev =>
+    //   prev.map(staff =>
+    //     staff.id === updatedStaff.id ? updatedStaff : staff
+    //   )
+    // )
+    // // Show success toast
+    // alert("Staff details updated successfully!")
   }
 
   const handleDeleteStaff = (staffId: number) => {
-    setStaffMembers(prev => prev.filter(staff => staff.id !== staffId))
-    // Show success toast
-    alert("Staff member removed successfully!")
+    // setStaffMembers(prev => prev.filter(staff => staff.id !== staffId))
+    // // Show success toast
+    // alert("Staff member removed successfully!")
   }
 
   const handleAddStaff = (newStaff: Omit<StaffMember, 'id'>) => {
-    const newId = Math.max(...staffMembers.map(s => s.id)) + 1
-    const staffToAdd: StaffMember = {
-      ...newStaff,
-      id: newId,
-      avatar: newStaff.name.split(' ').map(n => n[0]).join('').toUpperCase()
-    }
-    setStaffMembers(prev => [...prev, staffToAdd])
-    setIsAddStaffModalOpen(false)
-    alert("New staff member added successfully!")
+    // const newId = Math.max(...staffMembers.map(s => s.id)) + 1
+    // const staffToAdd: StaffMember = {
+    //   ...newStaff,
+    //   id: newId,
+    //   avatar: newStaff.name.split(' ').map(n => n[0]).join('').toUpperCase()
+    // }
+    // setStaffMembers(prev => [...prev, staffToAdd])
+    // setIsAddStaffModalOpen(false)
+    // alert("New staff member added successfully!")
   }
 
   return (
@@ -237,15 +236,15 @@ export default function StaffManagementPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {staffMembers.map((staff) => (
+              {staff.map((staff) => (
                 <TableRow key={staff.id}>
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar>
-                        <AvatarFallback>{staff.avatar}</AvatarFallback>
+                        {/* <AvatarFallback>{staff.avatar}</AvatarFallback> */}
                       </Avatar>
                       <div>
-                        <div className="font-medium">{staff.name}</div>
+                        <div className="font-medium">{staff.fullName}</div>
                         <div className="text-sm text-muted-foreground">ID: STF-{staff.id.toString().padStart(3, '0')}</div>
                       </div>
                     </div>
@@ -253,7 +252,7 @@ export default function StaffManagementPage() {
                   <TableCell>
                     <Badge variant={
                       staff.role === "Manager" ? "default" :
-                      staff.role === "Assistant Manager" ? "secondary" : "outline"
+                        staff.role === "Assistant Manager" ? "secondary" : "outline"
                     }>
                       {staff.role}
                     </Badge>
@@ -266,22 +265,22 @@ export default function StaffManagementPage() {
                       </div>
                       <div className="flex items-center text-sm text-muted-foreground">
                         <Phone className="mr-1 h-3 w-3" />
-                        {staff.phone}
+                        {staff.email}
                       </div>
                     </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center">
                       <Calendar className="mr-1 h-3 w-3" />
-                      {staff.joinDate}
+                      {staff.createdAt}
                     </div>
                   </TableCell>
                   <TableCell>
                     <Badge variant={
-                      staff.status === "Active" ? "default" :
-                      staff.status === "On Leave" ? "secondary" : "outline"
+                      staff.isActive ? "default" :
+                        staff.isActive ? "secondary" : "outline"
                     }>
-                      {staff.status}
+                      {staff.isActive ? "Active" : "Inactive"}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
@@ -304,7 +303,7 @@ export default function StaffManagementPage() {
                           <CalendarDays className="mr-2 h-4 w-4" />
                           View Schedule
                         </DropdownMenuItem>
-                        <DropdownMenuItem 
+                        <DropdownMenuItem
                           onClick={() => handleOpenModal('delete', staff)}
                           className="text-red-600"
                         >

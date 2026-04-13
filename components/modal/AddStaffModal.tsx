@@ -24,13 +24,9 @@ interface AddStaffModalProps {
   isOpen: boolean
   onClose: () => void
   onAddStaff: (staff: {
-    name: string
-    role: string
+    fullName: string
     email: string
-    phone: string
-    joinDate: string
-    status: string
-    avatar: string
+    password: string
   }) => void
 }
 
@@ -54,10 +50,11 @@ export function AddStaffModal({ isOpen, onClose, onAddStaff }: AddStaffModalProp
 
   const handleSubmit = () => {
     onAddStaff({
-      ...newStaffData,
-      avatar: newStaffData.name.split(' ').map(n => n[0]).join('').toUpperCase() || "ST"
+      fullName: newStaffData.name,
+      email: newStaffData.email,
+      password: newStaffData.password,
     })
-    
+
     // Reset form
     setNewStaffData({
       name: "",

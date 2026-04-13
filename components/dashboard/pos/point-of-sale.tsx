@@ -1,12 +1,12 @@
 "use client"
-import { useState } from "react"
-import { 
-  Search, 
-  Plus, 
-  Minus, 
-  Trash2, 
-  Printer, 
-  Scan, 
+import { useEffect, useState } from "react"
+import {
+  Search,
+  Plus,
+  Minus,
+  Trash2,
+  Printer,
+  Scan,
   ShoppingCart,
   X,
   Barcode,
@@ -43,30 +43,51 @@ import { PaymentModal } from "../../modal/paymentModal"
 import { toast } from "sonner"
 import { ReceiptPDF } from "../../pdf/receipt/ReceiptPDF"
 import { Label } from "../../ui/label"
+import { useProductsStore } from "@/stores/products/productsStore"
+import { Category, Product } from "@/lib/api/types"
 
 // Sample product data
-const sampleProducts = [
-  { id: 1, name: "iPhone 15 Pro", price: 999000, category: "Electronics", barcode: "123456789" },
-  { id: 2, name: "MacBook Air", price: 1299000, category: "Electronics", barcode: "123456790" },
-  { id: 3, name: "AirPods Pro", price: 249000, category: "Electronics", barcode: "123456791" },
-  { id: 4, name: "Coffee Mug", price: 15000, category: "Home", barcode: "123456792" },
-  { id: 5, name: "Wireless Mouse", price: 45000, category: "Electronics", barcode: "123456793" },
-  { id: 6, name: "Notebook", price: 8000, category: "Stationery", barcode: "123456794" },
-  { id: 7, name: "Water Bottle", price: 25000, category: "Home", barcode: "123456795" },
-  { id: 8, name: "USB Cable", price: 12000, category: "Electronics", barcode: "123456796" },
-]
+// const sampleProducts = [
+//   { id: 1, name: "iPhone 15 Pro", price: 999000, category: "Electronics", barcode: "123456789" },
+//   { id: 2, name: "MacBook Air", price: 1299000, category: "Electronics", barcode: "123456790" },
+//   { id: 3, name: "AirPods Pro", price: 249000, category: "Electronics", barcode: "123456791" },
+//   { id: 4, name: "Coffee Mug", price: 15000, category: "Home", barcode: "123456792" },
+//   { id: 5, name: "Wireless Mouse", price: 45000, category: "Electronics", barcode: "123456793" },
+//   { id: 6, name: "Notebook", price: 8000, category: "Stationery", barcode: "123456794" },
+//   { id: 7, name: "Water Bottle", price: 25000, category: "Home", barcode: "123456795" },
+//   { id: 8, name: "USB Cable", price: 12000, category: "Electronics", barcode: "123456796" },
+// ]
 
-interface CartItem {
-  id: number
+type CartItem = {
+  id: string
   name: string
   price: number
   quantity: number
-  total: number
 }
 
 type PaymentMethod = "cash" | "card" | "mobile" | "bank"
 
+type POSProduct = {
+  id: string
+  name: string
+  price: number
+  category: string
+  barcode?: string
+}
+
+const mapProductToPOS = (p: Product, categories: Category[]): POSProduct => {
+  return {
+    id: String(p.id),
+    name: p.name,
+    price: Number(p.price),
+    category:
+      categories.find(c => c.id === p.categoryId)?.name || "Uncategorized",
+    barcode: p.sku || "",
+  }
+}
+
 export function PointOfSale() {
+  const { products, fetchProducts, categories, fetchCategories } = useProductsStore()
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("All")
   const [cart, setCart] = useState<CartItem[]>([])
@@ -88,64 +109,85 @@ export function PointOfSale() {
     email: ""
   })
 
+  useEffect(() => {
+    fetchProducts()
+    fetchCategories()
+  }, [fetchProducts, fetchCategories])
+
+  const posProducts: POSProduct[] = products.map(p =>
+  mapProductToPOS(p, categories)
+)
   // Filter products based on search and category
-  const filteredProducts = sampleProducts.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         product.barcode.includes(searchTerm)
-    const matchesCategory = selectedCategory === "All" || product.category === selectedCategory
-    return matchesSearch && matchesCategory
-  })
+const filteredProducts = posProducts.filter(product => {
+  const matchesSearch =
+    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (product.barcode ?? "").includes(searchTerm)
+
+  const matchesCategory =
+    selectedCategory === "All" || product.category === selectedCategory
+
+  return matchesSearch && matchesCategory
+})
 
   // Get unique categories
-  const categories = ["All", ...new Set(sampleProducts.map(p => p.category))]
+  const categoryList = [
+    "All",
+    ...categories.map(c => c.name)
+  ]
 
   // Cart functions
-  const addToCart = (product: typeof sampleProducts[0]) => {
+  const addToCart = (product: POSProduct) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id)
+
       if (existing) {
         return prev.map(item =>
           item.id === product.id
-            ? { ...item, quantity: item.quantity + 1, total: (item.quantity + 1) * item.price }
+            ? { ...item, quantity: item.quantity + 1 }
             : item
         )
       }
-      return [...prev, { 
-        id: product.id, 
-        name: product.name, 
-        price: product.price, 
-        quantity: 1, 
-        total: product.price 
-      }]
+
+      return [
+        ...prev,
+        {
+          id: product.id,
+          name: product.name,
+          price: product.price,
+          quantity: 1
+        }
+      ]
     })
   }
 
-  const updateQuantity = (id: number, change: number) => {
-    setCart(prev => 
-      prev.map(item => {
-        if (item.id === id) {
-          const newQuantity = Math.max(0, item.quantity + change)
-          return { 
-            ...item, 
-            quantity: newQuantity, 
-            total: newQuantity * item.price 
+  const updateQuantity = (id: string, change: number) => {
+    setCart(prev =>
+      prev
+        .map(item => {
+          if (item.id === id) {
+            const newQuantity = Math.max(0, item.quantity + change)
+
+            return {
+              ...item,
+              quantity: newQuantity
+            }
           }
-        }
-        return item
-      }).filter(item => item.quantity > 0)
+          return item
+        })
+        .filter(item => item.quantity > 0)
     )
   }
 
-  const removeFromCart = (id: number) => {
-    setCart(prev => prev.filter(item => item.id !== id))
-  }
+const removeFromCart = (id: string) => {
+  setCart(prev => prev.filter(item => item.id !== id))
+}
 
   const clearCart = () => {
     setCart([])
   }
 
   // Calculate totals
-  const subtotal = cart.reduce((sum, item) => sum + item.total, 0)
+  const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)
   const tax = subtotal * 0.08
   const total = subtotal + tax
 
@@ -163,7 +205,7 @@ export function PointOfSale() {
       })
       return
     }
-    
+
     // Show customer info modal before payment
     setShowCustomerModal(true)
   }
@@ -172,11 +214,11 @@ export function PointOfSale() {
   const handlePaymentComplete = () => {
     const newTransactionId = generateTransactionId()
     setTransactionId(newTransactionId)
-    
+
     // Reset customer info after payment
     setCustomerForm({ name: "", phone: "", email: "" })
     setCustomerInfo({})
-    
+
     // Show success toast
     toast.success("Payment Completed!", {
       description: `Sale of Mk ${formatAmount(total)} processed successfully.`,
@@ -188,12 +230,12 @@ export function PointOfSale() {
         },
       },
     })
-    
+
     // Show receipt modal after a short delay
     setTimeout(() => {
       setShowReceiptModal(true)
     }, 500)
-    
+
     setPaymentModalOpen(false)
   }
 
@@ -206,13 +248,13 @@ export function PointOfSale() {
       })
       return
     }
-    
+
     const newTransactionId = generateTransactionId()
     setTransactionId(newTransactionId)
-    
+
     // Show receipt modal immediately
     setShowReceiptModal(true)
-    
+
     toast.info("Opening Receipt", {
       description: "Receipt ready for download or print",
       duration: 2000,
@@ -220,27 +262,31 @@ export function PointOfSale() {
   }
 
   // Simulate barcode scan
-  const handleScan = () => {
-    if (isScanning) return
-    
-    setIsScanning(true)
-    toast.info("Scanning Barcode...", {
-      description: "Please wait while scanning",
-      duration: 1500,
+const handleScan = () => {
+  if (isScanning) return
+
+  setIsScanning(true)
+
+  toast.info("Scanning Barcode...", {
+    description: "Please wait while scanning",
+    duration: 1500,
+  })
+
+  setTimeout(() => {
+    const randomProduct = products[Math.floor(Math.random() * products.length)]
+
+    const mappedProduct = mapProductToPOS(randomProduct, categories)
+
+    addToCart(mappedProduct)
+
+    toast.success("Product Scanned!", {
+      description: `${mappedProduct.name} added to cart.`,
+      duration: 2000,
     })
-    
-    setTimeout(() => {
-      const randomProduct = sampleProducts[Math.floor(Math.random() * sampleProducts.length)]
-      addToCart(randomProduct)
-      
-      toast.success("Product Scanned!", {
-        description: `${randomProduct.name} added to cart.`,
-        duration: 2000,
-      })
-      
-      setIsScanning(false)
-    }, 1500)
-  }
+
+    setIsScanning(false)
+  }, 1500)
+}
 
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0)
 
@@ -273,7 +319,7 @@ export function PointOfSale() {
               Transaction ID: {transactionId}
             </DialogDescription>
           </DialogHeader>
-          
+
           <ReceiptPDF
             items={cart}
             subtotal={subtotal}
@@ -283,7 +329,7 @@ export function PointOfSale() {
             transactionId={transactionId}
             customerInfo={customerInfo}
           />
-          
+
           <DialogFooter className="gap-2">
             <Button
               variant="outline"
@@ -320,7 +366,7 @@ export function PointOfSale() {
               Optional: Add customer details for the receipt
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             <div>
               <Label htmlFor="customerName">Name</Label>
@@ -328,20 +374,20 @@ export function PointOfSale() {
                 id="customerName"
                 placeholder="Full name"
                 value={customerForm.name}
-                onChange={(e) => setCustomerForm({...customerForm, name: e.target.value})}
+                onChange={(e) => setCustomerForm({ ...customerForm, name: e.target.value })}
               />
             </div>
-            
+
             <div>
               <Label htmlFor="customerPhone">Phone Number</Label>
               <Input
                 id="customerPhone"
                 placeholder="+265 XXX XXX XXX"
                 value={customerForm.phone}
-                onChange={(e) => setCustomerForm({...customerForm, phone: e.target.value})}
+                onChange={(e) => setCustomerForm({ ...customerForm, phone: e.target.value })}
               />
             </div>
-            
+
             <div>
               <Label htmlFor="customerEmail">Email (Optional)</Label>
               <Input
@@ -349,11 +395,11 @@ export function PointOfSale() {
                 type="email"
                 placeholder="customer@example.com"
                 value={customerForm.email}
-                onChange={(e) => setCustomerForm({...customerForm, email: e.target.value})}
+                onChange={(e) => setCustomerForm({ ...customerForm, email: e.target.value })}
               />
             </div>
           </div>
-          
+
           <DialogFooter className="gap-2">
             <Button
               variant="outline"
@@ -405,13 +451,13 @@ export function PointOfSale() {
               </p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="text-sm">
               {totalItems} items
             </Badge>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
               onClick={() => {
                 if (cart.length === 0) {
@@ -448,8 +494,8 @@ export function PointOfSale() {
                     />
                   </div>
                   <div className="flex gap-2">
-                    <Button 
-                      onClick={handleScan} 
+                    <Button
+                      onClick={handleScan}
                       disabled={isScanning}
                       className="flex-1 sm:flex-none"
                     >
@@ -464,17 +510,17 @@ export function PointOfSale() {
                     </Button>
                   </div>
                 </div>
-                
+
                 <ScrollArea className="w-full mt-4">
                   <div className="flex gap-2 pb-2">
                     {categories.map(category => (
                       <Badge
-                        key={category}
-                        variant={selectedCategory === category ? "default" : "outline"}
+                        key={category.id}
+                        variant={selectedCategory === category.name ? "default" : "outline"}
                         className="cursor-pointer whitespace-nowrap"
-                        onClick={() => setSelectedCategory(category)}
+                        onClick={() => setSelectedCategory(category.name)}
                       >
-                        {category}
+                        {category.name}
                       </Badge>
                     ))}
                   </div>
@@ -493,8 +539,8 @@ export function PointOfSale() {
                 <ScrollArea className="h-[400px] sm:h-[500px]">
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-4">
                     {filteredProducts.map(product => (
-                      <Card 
-                        key={product.id} 
+                      <Card
+                        key={product.id}
                         className="cursor-pointer transition-all duration-200 hover:shadow-md"
                         onClick={() => {
                           addToCart(product)
@@ -513,8 +559,8 @@ export function PointOfSale() {
                                 Mk {formatAmount(product.price)}
                               </p>
                             </div>
-                            <Button 
-                              size="sm" 
+                            <Button
+                              size="sm"
                               onClick={(e) => {
                                 e.stopPropagation()
                                 addToCart(product)
@@ -542,8 +588,8 @@ export function PointOfSale() {
                   <div className="font-bold text-lg">Mk {formatAmount(total)}</div>
                 </div>
                 <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     size="sm"
                     onClick={() => {
                       if (cart.length === 0) {
@@ -560,7 +606,7 @@ export function PointOfSale() {
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
-                  <Button 
+                  <Button
                     onClick={() => setShowCart(true)}
                     disabled={cart.length === 0}
                   >
@@ -613,7 +659,7 @@ export function PointOfSale() {
                             </p>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="font-bold text-foreground">Mk {formatAmount(item.total)}</span>
+                            <span className="font-bold text-foreground">Mk {formatAmount(item.price * item.quantity)}</span>
                             <div className="flex items-center gap-1">
                               <Button
                                 size="sm"
@@ -684,8 +730,8 @@ export function PointOfSale() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-4 pt-0">
-                <Select 
-                  value={paymentMethod} 
+                <Select
+                  value={paymentMethod}
                   onValueChange={(value: PaymentMethod) => setPaymentMethod(value)}
                 >
                   <SelectTrigger className="w-full">

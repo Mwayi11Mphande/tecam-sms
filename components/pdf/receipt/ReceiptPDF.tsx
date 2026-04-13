@@ -28,9 +28,16 @@ interface ServiceItem {
   status?: 'pending' | 'completed' | 'invoiced'
 }
 
+type CartItem = {
+  id: string
+  name: string
+  price: number
+  quantity: number
+}
+
 // Updated props interface
 interface ReceiptPDFProps {
-  items?: ProductItem[]
+  items: CartItem[]
   services?: ServiceItem[]
   subtotal: number
   tax: number
@@ -239,7 +246,7 @@ const formatAmount = (amount: number) => {
 }
 
 // Get receipt type display
-const getReceiptType = (items: ProductItem[] = [], services: ServiceItem[] = []) => {
+const getReceiptType = (items: CartItem[] = [], services: ServiceItem[] = []) => {
   if (items.length > 0 && services.length > 0) return 'MIXED SALE'
   if (items.length > 0) return 'PRODUCT SALE'
   if (services.length > 0) return 'SERVICE INVOICE'
@@ -328,7 +335,7 @@ const ReceiptDocument = ({
                 <Text style={styles.colItem}>{item.name}</Text>
                 <Text style={styles.colQty}>{item.quantity}</Text>
                 <Text style={styles.colPrice}>Mk {formatAmount(item.price)}</Text>
-                <Text style={[styles.colTotal, styles.bold]}>Mk {formatAmount(item.total)}</Text>
+                <Text style={[styles.colTotal, styles.bold]}>Mk {formatAmount(item.price * item.quantity)}</Text>
               </View>
             ))}
           </>
@@ -664,7 +671,7 @@ export function ReceiptPDF(props: ReceiptPDFProps) {
                         <td>${item.name}</td>
                         <td class="text-center">${item.quantity}</td>
                         <td class="text-right">Mk ${formatAmount(item.price)}</td>
-                        <td class="text-right bold">Mk ${formatAmount(item.total)}</td>
+                        <td class="text-right bold">Mk ${formatAmount(item.price * item.quantity)}</td>
                       </tr>
                     `).join('')}
                   </tbody>

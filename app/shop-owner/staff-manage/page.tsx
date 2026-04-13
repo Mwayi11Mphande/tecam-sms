@@ -60,7 +60,7 @@ type StaffMember = {
 type ModalMode = 'view' | 'edit' | 'schedule' | 'delete'
 
 export default function StaffManagementPage() {
-  const { staff, fetchStaff, loading } = useStaffStore()
+  const { staff, fetchStaff, createStaff, loading } = useStaffStore()
 
   useEffect(() => {
     fetchStaff()
@@ -79,10 +79,10 @@ export default function StaffManagementPage() {
   const [isAddStaffModalOpen, setIsAddStaffModalOpen] = useState(false)
 
   const staffStats = {
-    total: 6,
-    active: 4,
-    onLeave: 1,
-    positions: ["Manager", "Sales Associate", "Inventory Manager", "Cashier", "Assistant Manager"]
+    total: staff.length,
+    active: staff.filter(s => s.isActive).length,
+    inactive: staff.filter(s => !s.isActive).length,
+    positions: [...new Set(staff.map(s => s.role))]
   }
 
   const handleOpenModal = (mode: ModalMode, staff: Staff) => {
@@ -117,16 +117,17 @@ export default function StaffManagementPage() {
     // alert("Staff member removed successfully!")
   }
 
-  const handleAddStaff = (newStaff: Omit<StaffMember, 'id'>) => {
-    // const newId = Math.max(...staffMembers.map(s => s.id)) + 1
-    // const staffToAdd: StaffMember = {
-    //   ...newStaff,
-    //   id: newId,
-    //   avatar: newStaff.name.split(' ').map(n => n[0]).join('').toUpperCase()
-    // }
-    // setStaffMembers(prev => [...prev, staffToAdd])
-    // setIsAddStaffModalOpen(false)
-    // alert("New staff member added successfully!")
+  const handleAddStaff = async (newStaff: {
+    fullName: string
+    email: string
+    password: string
+  }) => {
+    try {
+      await createStaff(newStaff)
+      setIsAddStaffModalOpen(false)
+    } catch (error) {
+      console.error(error)
+    }
   }
 
   return (
@@ -178,7 +179,7 @@ export default function StaffManagementPage() {
             <Clock className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{staffStats.onLeave}</div>
+            <div className="text-2xl font-bold">{staffStats.inactive}</div>
             <p className="text-xs text-orange-500">
               17% of staff
             </p>
@@ -191,7 +192,7 @@ export default function StaffManagementPage() {
             <Shield className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">5</div>
+            <div className="text-2xl font-bold">{staffStats.positions.length}</div>
             <p className="text-xs text-muted-foreground">
               Different roles
             </p>

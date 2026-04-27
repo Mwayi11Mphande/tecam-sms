@@ -45,6 +45,7 @@ import { ReceiptPDF } from "../../pdf/receipt/ReceiptPDF"
 import { Label } from "../../ui/label"
 import { useProductsStore } from "@/stores/products/productsStore"
 import { Category, Product } from "@/lib/api/types"
+import { useShopStore } from "@/stores/shop/shopStore"
 
 // Sample product data
 // const sampleProducts = [
@@ -87,6 +88,7 @@ const mapProductToPOS = (p: Product, categories: Category[]): POSProduct => {
 }
 
 export function PointOfSale() {
+  const shop = useShopStore((s) => s.shop);
   const { products, fetchProducts, categories, fetchCategories } = useProductsStore()
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("All")
@@ -115,19 +117,19 @@ export function PointOfSale() {
   }, [fetchProducts, fetchCategories])
 
   const posProducts: POSProduct[] = products.map(p =>
-  mapProductToPOS(p, categories)
-)
+    mapProductToPOS(p, categories)
+  )
   // Filter products based on search and category
-const filteredProducts = posProducts.filter(product => {
-  const matchesSearch =
-    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (product.barcode ?? "").includes(searchTerm)
+  const filteredProducts = posProducts.filter(product => {
+    const matchesSearch =
+      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (product.barcode ?? "").includes(searchTerm)
 
-  const matchesCategory =
-    selectedCategory === "All" || product.category === selectedCategory
+    const matchesCategory =
+      selectedCategory === "All" || product.category === selectedCategory
 
-  return matchesSearch && matchesCategory
-})
+    return matchesSearch && matchesCategory
+  })
 
   // Get unique categories
   const categoryList = [
@@ -178,18 +180,24 @@ const filteredProducts = posProducts.filter(product => {
     )
   }
 
-const removeFromCart = (id: string) => {
-  setCart(prev => prev.filter(item => item.id !== id))
-}
+  const removeFromCart = (id: string) => {
+    setCart(prev => prev.filter(item => item.id !== id))
+  }
 
   const clearCart = () => {
     setCart([])
   }
 
-  // Calculate totals
-  const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-  const tax = subtotal * 0.08
-  const total = subtotal + tax
+  const vatRate = shop?.vatRegistered ? Number(shop.vatRate) : 0
+
+  const total = cart.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0
+  )
+
+  // Extract VAT from total
+  const subtotal = total / (1 + vatRate)
+  const tax = total - subtotal
 
   // Generate transaction ID
   const generateTransactionId = () => {
@@ -262,31 +270,31 @@ const removeFromCart = (id: string) => {
   }
 
   // Simulate barcode scan
-const handleScan = () => {
-  if (isScanning) return
+  const handleScan = () => {
+    if (isScanning) return
 
-  setIsScanning(true)
+    setIsScanning(true)
 
-  toast.info("Scanning Barcode...", {
-    description: "Please wait while scanning",
-    duration: 1500,
-  })
-
-  setTimeout(() => {
-    const randomProduct = products[Math.floor(Math.random() * products.length)]
-
-    const mappedProduct = mapProductToPOS(randomProduct, categories)
-
-    addToCart(mappedProduct)
-
-    toast.success("Product Scanned!", {
-      description: `${mappedProduct.name} added to cart.`,
-      duration: 2000,
+    toast.info("Scanning Barcode...", {
+      description: "Please wait while scanning",
+      duration: 1500,
     })
 
-    setIsScanning(false)
-  }, 1500)
-}
+    setTimeout(() => {
+      const randomProduct = products[Math.floor(Math.random() * products.length)]
+
+      const mappedProduct = mapProductToPOS(randomProduct, categories)
+
+      addToCart(mappedProduct)
+
+      toast.success("Product Scanned!", {
+        description: `${mappedProduct.name} added to cart.`,
+        duration: 2000,
+      })
+
+      setIsScanning(false)
+    }, 1500)
+  }
 
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0)
 

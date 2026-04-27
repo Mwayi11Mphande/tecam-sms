@@ -95,3 +95,26 @@ export type Staff = {
   createdAt: string;
   updatedAt: string;
 };
+
+export type Shop = {
+  id: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  tpin?: string;
+
+  vatRegistered: boolean;
+  vatRate: number; // convert string -> number
+
+  subscriptionStatus: "TRIAL" | "ACTIVE" | "SUSPENDED" | "CANCELLED";
+  subscriptionPlan: "BASIC" | "PRO" | "ENTERPRISE" | null;
+  subscriptionExpiry: string | null;
+
+  isActive: boolean;
+
+  ownerId: string;
+
+  createdAt: string;
+  updatedAt: string;
+};

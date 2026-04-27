@@ -1,10 +1,18 @@
+'use client'
 import {
   SidebarInset,
   SidebarProvider,
 } from "@/components/ui/sidebar"
 import { PointOfSale } from "@/components/dashboard/pos/point-of-sale"
+import { useShopStore } from "@/stores/shop/shopStore";
+import { useEffect } from "react";
 
 export default function Page() {
+  const fetchShop = useShopStore((s) => s.fetchShop);
+
+  useEffect(() => {
+    fetchShop();
+  }, []);
   return (
     <SidebarProvider
       style={

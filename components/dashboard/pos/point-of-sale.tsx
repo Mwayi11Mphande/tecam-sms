@@ -1,44 +1,14 @@
 "use client"
 import { useEffect, useState } from "react"
-import {
-  Search,
-  Plus,
-  Minus,
-  Trash2,
-  Printer,
-  Scan,
-  ShoppingCart,
-  X,
-  Barcode,
-  CreditCard,
-  Smartphone,
-  Wallet,
-  Building,
-  ChevronLeft,
-  Receipt,
-  User
-} from "lucide-react"
+import { Search, Plus, Minus, Trash2, Printer, Scan, ShoppingCart, X, Barcode, CreditCard, Smartphone, Wallet, Building, ChevronLeft, Receipt, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { PaymentModal } from "../../modal/paymentModal"
 import { toast } from "sonner"
 import { ReceiptPDF } from "../../pdf/receipt/ReceiptPDF"
@@ -46,18 +16,7 @@ import { Label } from "../../ui/label"
 import { useProductsStore } from "@/stores/products/productsStore"
 import { Category, Product } from "@/lib/api/types"
 import { useShopStore } from "@/stores/shop/shopStore"
-
-// Sample product data
-// const sampleProducts = [
-//   { id: 1, name: "iPhone 15 Pro", price: 999000, category: "Electronics", barcode: "123456789" },
-//   { id: 2, name: "MacBook Air", price: 1299000, category: "Electronics", barcode: "123456790" },
-//   { id: 3, name: "AirPods Pro", price: 249000, category: "Electronics", barcode: "123456791" },
-//   { id: 4, name: "Coffee Mug", price: 15000, category: "Home", barcode: "123456792" },
-//   { id: 5, name: "Wireless Mouse", price: 45000, category: "Electronics", barcode: "123456793" },
-//   { id: 6, name: "Notebook", price: 8000, category: "Stationery", barcode: "123456794" },
-//   { id: 7, name: "Water Bottle", price: 25000, category: "Home", barcode: "123456795" },
-//   { id: 8, name: "USB Cable", price: 12000, category: "Electronics", barcode: "123456796" },
-// ]
+import { createSale } from "@/services/sales/sales.api"
 
 type CartItem = {
   id: string
@@ -105,11 +64,9 @@ export function PointOfSale() {
     email?: string
   }>({})
   const [showCustomerModal, setShowCustomerModal] = useState(false)
-  const [customerForm, setCustomerForm] = useState({
-    name: "",
-    phone: "",
-    email: ""
-  })
+  const [customerForm, setCustomerForm] = useState({ name: "", phone: "", email: "" })
+  const [completedSale, setCompletedSale] = useState<any>(null)
+  const [receiptItems, setReceiptItems] = useState<CartItem[]>([])
 
   useEffect(() => {
     fetchProducts()
@@ -219,32 +176,86 @@ export function PointOfSale() {
   }
 
   // Handle payment complete
-  const handlePaymentComplete = () => {
-    const newTransactionId = generateTransactionId()
-    setTransactionId(newTransactionId)
+  const handlePaymentComplete = async () => {
+    try {
 
-    // Reset customer info after payment
-    setCustomerForm({ name: "", phone: "", email: "" })
-    setCustomerInfo({})
+      const payload = {
+        paymentMethod: paymentMethod.toUpperCase() as
+          | "CASH"
+          | "CARD"
+          | "MOBILE"
+          | "BANK",
 
-    // Show success toast
-    toast.success("Payment Completed!", {
-      description: `Sale of Mk ${formatAmount(total)} processed successfully.`,
-      duration: 5000,
-      action: {
-        label: "View Receipt",
-        onClick: () => {
-          setShowReceiptModal(true)
+        items: cart.map(item => ({
+          productId: item.id,
+          quantity: item.quantity,
+        })),
+
+        amountPaid: total,
+      }
+
+      console.log("SALE PAYLOAD:", payload)
+
+      const response = await createSale(payload)
+
+      console.log("SALE RESPONSE:", response)
+
+      setCompletedSale(response.sale)
+
+      const newTransactionId =
+        response?.transactionId || generateTransactionId()
+
+      setTransactionId(response.sale.receiptNumber)
+
+      // Reset customer info after payment
+      setCustomerForm({
+        name: "",
+        phone: "",
+        email: "",
+      })
+
+      setCustomerInfo({})
+
+      // Show success toast
+      toast.success("Payment Completed!", {
+        description: `Sale of Mk ${formatAmount(total)} processed successfully.`,
+        duration: 5000,
+        action: {
+          label: "View Receipt",
+          onClick: () => {
+            setShowReceiptModal(true)
+          },
         },
-      },
-    })
+      })
 
-    // Show receipt modal after a short delay
-    setTimeout(() => {
-      setShowReceiptModal(true)
-    }, 500)
+      // Refresh products/stock
+      await fetchProducts()
 
-    setPaymentModalOpen(false)
+      // Show receipt modal
+      setTimeout(() => {
+        setShowReceiptModal(true)
+      }, 500)
+
+      // Close payment modal
+      setPaymentModalOpen(false)
+
+      // Set receipt items
+      setReceiptItems(cart)
+
+      // Clear cart AFTER successful save
+      clearCart()
+
+    } catch (error: any) {
+
+      console.error("SALE ERROR:", error)
+
+      toast.error("Failed to process sale", {
+        description:
+          error?.response?.data?.message ||
+          "Something went wrong while saving the sale.",
+        duration: 5000,
+      })
+    }
   }
 
   // Handle print receipt
@@ -329,12 +340,12 @@ export function PointOfSale() {
           </DialogHeader>
 
           <ReceiptPDF
-            items={cart}
-            subtotal={subtotal}
-            tax={tax}
-            total={total}
-            paymentMethod={paymentMethod}
-            transactionId={transactionId}
+            items={receiptItems}
+            subtotal={Number(completedSale?.subtotal || 0)}
+            tax={Number(completedSale?.vatAmount || 0)}
+            total={Number(completedSale?.total || 0)}
+            paymentMethod={completedSale?.paymentMethod || paymentMethod}
+            transactionId={completedSale?.receiptNumber || transactionId}
             customerInfo={customerInfo}
           />
 

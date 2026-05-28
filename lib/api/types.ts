@@ -39,8 +39,8 @@ export type Product = {
   id: string;
   name: string;
   sku: string;
-  price: number;           // convert string from backend to number
-  cost: number;            // convert string from backend to number
+  price: number;
+  cost: number;
   status: "ACTIVE" | "INACTIVE";
   stockQty: number;
   lowStockThreshold: number;
@@ -77,9 +77,47 @@ export type SaleItem = {
 
 export type Sale = {
   id: string;
-  totalAmount: number;
-  items: SaleItem[];
+
+  shopId: string;
+  cashierId: string;
+
+  receiptNumber: string;
+
+  subtotal: number;
+  vatRate: number;
+  vatAmount: number;
+  total: number;
+
+  totalItems: number;
+
+  paymentMethod:
+    | "CASH"
+    | "CARD"
+    | "MOBILE"
+    | "BANK";
+
+  amountPaid: number;
+  changeGiven: number;
+
+  status:
+    | "COMPLETED"
+    | "VOIDED"
+    | "PENDING";
+
+  voidedAt: string | null;
+  voidedById: string | null;
+  voidReason: string | null;
+
   createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+
+  saleItems: SaleItem[];
+
+  cashier: {
+    id: string;
+    fullName: string;
+  };
 };
 
 // -----------------------------

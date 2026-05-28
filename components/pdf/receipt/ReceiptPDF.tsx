@@ -1,13 +1,6 @@
 "use client"
 
-import {
-  Document,
-  Page,
-  Text,
-  View,
-  StyleSheet,
-  PDFDownloadLink,
-} from "@react-pdf/renderer"
+import { Document, Page, Text, View, StyleSheet, PDFDownloadLink, } from "@react-pdf/renderer"
 
 import { Download, Printer } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -483,17 +476,6 @@ export function ReceiptPDF(
             Payment:
             ${props.paymentMethod}
           </div>
-
-          ${
-            shop?.vatNumber
-              ? `
-              <div>
-                VAT No:
-                ${shop.vatNumber}
-              </div>
-            `
-              : ""
-          }
 
           <div
             class="center"

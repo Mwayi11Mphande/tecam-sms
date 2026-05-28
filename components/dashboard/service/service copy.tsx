@@ -1,12 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import {
-  Plus,
-  Trash2,
-  Printer,
-  Save,
-  Edit,
+import { 
+  Plus, 
+  Trash2, 
+  Printer, 
+  Save, 
+  Edit, 
   Check,
   X,
   Search,
@@ -53,9 +53,6 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { ReceiptPDF } from "@/components/pdf/receipt/ReceiptPDF"
-import { ServiceSummaryCards } from "./components/ServiceSummaryCards"
-import { ServiceFilters } from "./components/ServiceFilters"
-import { ServiceTable } from "./components/ServicesTable"
 
 interface ServiceItem {
   id: string
@@ -146,15 +143,15 @@ export function ServicesPage() {
 
   // Filter services
   const filteredServices = serviceItems.filter(service => {
-    const matchesSearch =
+    const matchesSearch = 
       service.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
       service.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       service.customerPhone?.includes(searchTerm) ||
       service.serviceId?.includes(searchTerm)
-
+    
     const matchesCategory = selectedCategory === "all" || service.category === selectedCategory
     const matchesStatus = selectedStatus === "all" || service.status === selectedStatus
-
+    
     return matchesSearch && matchesCategory && matchesStatus
   })
 
@@ -166,7 +163,7 @@ export function ServicesPage() {
       acc.total += service.total
       return acc
     }, { pending: 0, completed: 0, total: 0 })
-
+    
     return totals
   }
 
@@ -242,7 +239,7 @@ export function ServicesPage() {
     setServiceItems(prev => [newService, ...prev])
     setIsAddServiceModalOpen(false)
     resetForm()
-
+    
     toast.success("Service added successfully!", {
       description: `Service recorded for Mk ${formatAmount(newService.total)}`,
     })
@@ -277,28 +274,28 @@ export function ServicesPage() {
       return
     }
 
-    setServiceItems(prev =>
-      prev.map(service =>
-        service.id === editingServiceId
+    setServiceItems(prev => 
+      prev.map(service => 
+        service.id === editingServiceId 
           ? {
-            ...service,
-            description: serviceForm.description,
-            category: serviceForm.category,
-            quantity: serviceForm.quantity,
-            unitPrice: serviceForm.unitPrice,
-            total: calculateTotal(),
-            customerName: serviceForm.customerName.trim() || undefined,
-            customerPhone: serviceForm.customerPhone.trim() || undefined,
-            notes: serviceForm.notes.trim() || undefined,
-            status: serviceForm.status
-          }
+              ...service,
+              description: serviceForm.description,
+              category: serviceForm.category,
+              quantity: serviceForm.quantity,
+              unitPrice: serviceForm.unitPrice,
+              total: calculateTotal(),
+              customerName: serviceForm.customerName.trim() || undefined,
+              customerPhone: serviceForm.customerPhone.trim() || undefined,
+              notes: serviceForm.notes.trim() || undefined,
+              status: serviceForm.status
+            }
           : service
       )
     )
 
     setIsAddServiceModalOpen(false)
     resetForm()
-
+    
     toast.success("Service updated successfully!")
   }
 
@@ -312,15 +309,15 @@ export function ServicesPage() {
 
   // Update service status
   const handleUpdateStatus = (id: string, newStatus: ServiceItem['status']) => {
-    setServiceItems(prev =>
-      prev.map(service =>
+    setServiceItems(prev => 
+      prev.map(service => 
         service.id === id ? { ...service, status: newStatus } : service
       )
     )
-
-    const statusText = newStatus === 'completed' ? 'Completed' :
-      newStatus === 'invoiced' ? 'Invoiced' : 'Pending'
-
+    
+    const statusText = newStatus === 'completed' ? 'Completed' : 
+                     newStatus === 'invoiced' ? 'Invoiced' : 'Pending'
+    
     toast.info(`Status updated to ${statusText}`)
   }
 
@@ -349,9 +346,9 @@ export function ServicesPage() {
       completed: { variant: "default", color: "text-green-600" },
       invoiced: { variant: "secondary", color: "text-blue-600" }
     }
-
+    
     const variant = variants[status]
-
+    
     return (
       <Badge variant={variant.variant as any} className={`${variant.color} capitalize`}>
         {status}
@@ -385,7 +382,7 @@ export function ServicesPage() {
   const handlePrintService = (service: ServiceItem) => {
     setSelectedServiceForPrint(service)
     setShowReceiptModal(true)
-
+    
     toast.info("Opening receipt...", {
       description: `Service: ${service.description}`,
       duration: 2000,
@@ -414,7 +411,7 @@ export function ServicesPage() {
               </div>
             </div>
           </div>
-
+          
           <Button onClick={() => setIsAddServiceModalOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Service
@@ -424,12 +421,43 @@ export function ServicesPage() {
 
       {/* Summary Cards */}
       <div className="max-w-7xl mx-auto mb-6">
-        <ServiceSummaryCards
-          pending={totals.pending}
-          completed={totals.completed}
-          total={totals.total}
-          formatAmount={formatAmount}
-        />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Pending Services</p>
+                  <p className="text-2xl font-bold">Mk {formatAmount(totals.pending)}</p>
+                </div>
+                <Clock className="h-8 w-8 text-yellow-600" />
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Completed Services</p>
+                  <p className="text-2xl font-bold">Mk {formatAmount(totals.completed)}</p>
+                </div>
+                <Check className="h-8 w-8 text-green-600" />
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Revenue</p>
+                  <p className="text-2xl font-bold">Mk {formatAmount(totals.total)}</p>
+                </div>
+                <DollarSign className="h-8 w-8 text-primary" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Main Content */}
@@ -466,23 +494,71 @@ export function ServicesPage() {
             </Card>
 
             {/* Filters */}
-            <ServiceFilters
-              searchTerm={searchTerm}
-              setSearchTerm={setSearchTerm}
-              selectedCategory={selectedCategory}
-              setSelectedCategory={setSelectedCategory}
-              selectedStatus={selectedStatus}
-              setSelectedStatus={setSelectedStatus}
-              currentDate={currentDate}
-              setCurrentDate={setCurrentDate}
-              serviceCategories={serviceCategories}
-              onClear={() => {
-                setSearchTerm("")
-                setSelectedCategory("all")
-                setSelectedStatus("all")
-                toast.info("Filters cleared")
-              }}
-            />
+            <Card>
+              <CardHeader className="p-4">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Filters
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 pt-0 space-y-4">
+                <div>
+                  <Label htmlFor="category-filter">Category</Label>
+                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                    <SelectTrigger id="category-filter">
+                      <SelectValue placeholder="All Categories" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
+                      {serviceCategories.map(cat => (
+                        <SelectItem key={cat.value} value={cat.value}>
+                          {cat.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <Label htmlFor="status-filter">Status</Label>
+                  <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                    <SelectTrigger id="status-filter">
+                      <SelectValue placeholder="All Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="invoiced">Invoiced</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <Label htmlFor="date-filter">Date</Label>
+                  <Input
+                    id="date-filter"
+                    type="date"
+                    value={currentDate}
+                    onChange={(e) => setCurrentDate(e.target.value)}
+                  />
+                </div>
+                
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full"
+                  onClick={() => {
+                    setSearchTerm("")
+                    setSelectedCategory("all")
+                    setSelectedStatus("all")
+                    toast.info("Filters cleared")
+                  }}
+                >
+                  Clear Filters
+                </Button>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Main Content Area */}
@@ -512,15 +588,120 @@ export function ServicesPage() {
             <Card>
               <CardContent className="p-0">
                 <ScrollArea className="h-[600px]">
-                  <ServiceTable
-                    services={filteredServices}
-                    onEdit={handleEditService}
-                    onDelete={handleDeleteService}
-                    onPrint={handlePrintService}
-                    onStatusChange={handleUpdateStatus}
-                    formatAmount={formatAmount}
-                    formatDate={formatDate}
-                  />
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Service ID</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead>Customer</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredServices.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={8} className="text-center h-32">
+                            <div className="flex flex-col items-center justify-center text-muted-foreground">
+                              <FileText className="h-12 w-12 mb-2 opacity-50" />
+                              <p>No services found</p>
+                              <p className="text-sm">Add your first service to get started</p>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        filteredServices.map((service) => (
+                          <TableRow key={service.id}>
+                            <TableCell className="font-mono text-xs">
+                              {service.serviceId}
+                            </TableCell>
+                            <TableCell>
+                              <div>
+                                <p className="font-medium">{service.description}</p>
+                                {service.notes && (
+                                  <p className="text-xs text-muted-foreground truncate max-w-[200px]">
+                                    {service.notes}
+                                  </p>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {service.customerName ? (
+                                <div>
+                                  <p className="font-medium">{service.customerName}</p>
+                                  {service.customerPhone && (
+                                    <p className="text-xs text-muted-foreground">
+                                      {service.customerPhone}
+                                    </p>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">Walk-in</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">
+                                {service.category}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {formatDate(service.date)}
+                            </TableCell>
+                            <TableCell className="font-bold">
+                              Mk {formatAmount(service.total)}
+                            </TableCell>
+                            <TableCell>
+                              {getStatusBadge(service.status)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleEditService(service)}
+                                >
+                                  <Edit className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handlePrintService(service)}
+                                >
+                                  <Printer className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleDeleteService(service.id)}
+                                  className="text-destructive hover:text-destructive"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                                <Select
+                                  value={service.status}
+                                  onValueChange={(value: ServiceItem['status']) => 
+                                    handleUpdateStatus(service.id, value)
+                                  }
+                                >
+                                  <SelectTrigger className="w-32 h-8">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="pending">Pending</SelectItem>
+                                    <SelectItem value="completed">Completed</SelectItem>
+                                    <SelectItem value="invoiced">Invoiced</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
                 </ScrollArea>
               </CardContent>
             </Card>
@@ -540,10 +721,10 @@ export function ServicesPage() {
               Service ID: {selectedServiceForPrint?.serviceId}
             </DialogDescription>
           </DialogHeader>
-
+          
           {selectedServiceForPrint && (
             <div className="space-y-4">
-              {/* <ReceiptPDF
+              <ReceiptPDF
                 services={[selectedServiceForPrint]}
                 subtotal={selectedServiceForPrint.total}
                 tax={selectedServiceForPrint.total * 0.08}
@@ -554,8 +735,8 @@ export function ServicesPage() {
                   name: selectedServiceForPrint.customerName,
                   phone: selectedServiceForPrint.customerPhone
                 }}
-              /> */}
-
+              />
+              
               <div className="pt-4 border-t">
                 <div className="text-sm text-muted-foreground space-y-1">
                   <p>• Service Date: {formatDate(selectedServiceForPrint.date)}</p>
@@ -568,7 +749,7 @@ export function ServicesPage() {
               </div>
             </div>
           )}
-
+          
           <DialogFooter>
             <Button
               variant="outline"
@@ -593,7 +774,7 @@ export function ServicesPage() {
               Enter details of the service performed
             </DialogDescription>
           </DialogHeader>
-
+          
           <div className="space-y-4">
             {/* Description */}
             <div>
@@ -606,12 +787,12 @@ export function ServicesPage() {
                 rows={3}
               />
             </div>
-
+            
             {/* Category */}
             <div>
               <Label htmlFor="category">Category *</Label>
-              <Select
-                value={serviceForm.category}
+              <Select 
+                value={serviceForm.category} 
                 onValueChange={(value: ServiceCategory) => handleFormChange('category', value)}
               >
                 <SelectTrigger id="category">
@@ -626,7 +807,7 @@ export function ServicesPage() {
                 </SelectContent>
               </Select>
             </div>
-
+            
             {/* Quantity and Price */}
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -651,7 +832,7 @@ export function ServicesPage() {
                 />
               </div>
             </div>
-
+            
             {/* Total Display */}
             <div className="p-3 bg-muted rounded-lg">
               <div className="flex justify-between items-center">
@@ -659,14 +840,14 @@ export function ServicesPage() {
                 <span className="text-lg font-bold">Mk {formatAmount(calculateTotal())}</span>
               </div>
             </div>
-
+            
             {/* Customer Information */}
             <Separator />
             <h4 className="text-sm font-medium flex items-center gap-2">
               <User className="h-4 w-4" />
               Customer Information (Optional)
             </h4>
-
+            
             <div className="space-y-3">
               <div>
                 <Label htmlFor="customerName">Customer Name</Label>
@@ -677,7 +858,7 @@ export function ServicesPage() {
                   onChange={(e) => handleFormChange('customerName', e.target.value)}
                 />
               </div>
-
+              
               <div>
                 <Label htmlFor="customerPhone">Phone Number</Label>
                 <Input
@@ -688,7 +869,7 @@ export function ServicesPage() {
                 />
               </div>
             </div>
-
+            
             {/* Notes */}
             <div>
               <Label htmlFor="notes">Additional Notes</Label>
@@ -700,12 +881,12 @@ export function ServicesPage() {
                 rows={2}
               />
             </div>
-
+            
             {/* Status */}
             <div>
               <Label htmlFor="status">Status</Label>
-              <Select
-                value={serviceForm.status}
+              <Select 
+                value={serviceForm.status} 
                 onValueChange={(value: ServiceItem['status']) => handleFormChange('status', value)}
               >
                 <SelectTrigger id="status">
@@ -719,7 +900,7 @@ export function ServicesPage() {
               </Select>
             </div>
           </div>
-
+          
           <DialogFooter className="gap-2">
             <Button
               variant="outline"

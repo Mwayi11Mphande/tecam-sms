@@ -65,14 +65,36 @@ export type Category = {
 // Sales
 // -----------------------------
 
+// export type SaleItem = {
+//   id: string;
+//   productId?: string;
+//   serviceId?: string;
+//   name: string;
+//   quantity: number;
+//   price: number;
+//   total: number;
+// };
+
 export type SaleItem = {
   id: string;
-  productId?: string;
-  serviceId?: string;
+
+  type: "PRODUCT" | "SERVICE";
+
+  productId?: string | null;
+  serviceId?: string | null;
+
   name: string;
+  sku?: string | null;
+
   quantity: number;
-  price: number;
+
+  unitPrice: number;
+  subtotal: number;
+  vatAmount: number;
+  vatRate: number;
   total: number;
+
+  createdAt?: string;
 };
 
 export type Sale = {

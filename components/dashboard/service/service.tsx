@@ -1,25 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import {
-  Plus,
-  Trash2,
-  Printer,
-  Save,
-  Edit,
-  Check,
-  X,
-  Search,
-  Clock,
-  Calendar,
-  User,
-  FileText,
-  DollarSign,
-  Tag,
-  Layers,
-  ChevronLeft,
-  ArrowLeft
-} from "lucide-react"
+import { Plus, Trash2, Printer, Save, Edit, Check, X, Search, Clock, Calendar, User, FileText, DollarSign, Tag, Layers, ChevronLeft, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
@@ -56,6 +38,9 @@ import { ReceiptPDF } from "@/components/pdf/receipt/ReceiptPDF"
 import { ServiceSummaryCards } from "./components/ServiceSummaryCards"
 import { ServiceFilters } from "./components/ServiceFilters"
 import { ServiceTable } from "./components/ServicesTable"
+import { ServiceFormModal } from "./modals/ServiceFormModal"
+import { ServiceReceiptModal } from "./modals/ServiceReceiptModal"
+import { useSalesStore } from "@/stores/sales/useSalesStore"
 
 interface ServiceItem {
   id: string
@@ -75,6 +60,12 @@ interface ServiceItem {
 type ServiceCategory = 'stationery' | 'printing' | 'design' | 'consultation' | 'repair' | 'other'
 
 export function ServicesPage() {
+  const { sales, isLoading, error, fetchSales } = useSalesStore()
+
+  useEffect(() => {
+    fetchSales()
+  }, [fetchSales])
+
   const [serviceItems, setServiceItems] = useState<ServiceItem[]>([
     // Sample data for testing
     {
@@ -529,227 +520,33 @@ export function ServicesPage() {
       </div>
 
       {/* Receipt Modal */}
-      <Dialog open={showReceiptModal} onOpenChange={setShowReceiptModal}>
-        <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Printer className="h-5 w-5" />
-              Service Receipt
-            </DialogTitle>
-            <DialogDescription>
-              Service ID: {selectedServiceForPrint?.serviceId}
-            </DialogDescription>
-          </DialogHeader>
-
-          {selectedServiceForPrint && (
-            <div className="space-y-4">
-              {/* <ReceiptPDF
-                services={[selectedServiceForPrint]}
-                subtotal={selectedServiceForPrint.total}
-                tax={selectedServiceForPrint.total * 0.08}
-                total={selectedServiceForPrint.total * 1.08}
-                paymentMethod="cash"
-                transactionId={selectedServiceForPrint.serviceId || `SRV-${Date.now().toString().slice(-6)}`}
-                customerInfo={{
-                  name: selectedServiceForPrint.customerName,
-                  phone: selectedServiceForPrint.customerPhone
-                }}
-              /> */}
-
-              <div className="pt-4 border-t">
-                <div className="text-sm text-muted-foreground space-y-1">
-                  <p>• Service Date: {formatDate(selectedServiceForPrint.date)}</p>
-                  <p>• Category: {selectedServiceForPrint.category}</p>
-                  <p>• Quantity: {selectedServiceForPrint.quantity}</p>
-                  {selectedServiceForPrint.notes && (
-                    <p>• Notes: {selectedServiceForPrint.notes}</p>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowReceiptModal(false)}
-              className="w-full sm:w-auto"
-            >
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ServiceReceiptModal
+        open={showReceiptModal}
+        onOpenChange={setShowReceiptModal}
+        service={selectedServiceForPrint}
+        formatDate={formatDate}
+      />
 
       {/* Add/Edit Service Modal */}
-      <Dialog open={isAddServiceModalOpen} onOpenChange={setIsAddServiceModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Plus className="h-5 w-5" />
-              {isEditMode ? 'Edit Service' : 'Add New Service'}
-            </DialogTitle>
-            <DialogDescription>
-              Enter details of the service performed
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            {/* Description */}
-            <div>
-              <Label htmlFor="description">Service Description *</Label>
-              <Textarea
-                id="description"
-                placeholder="e.g., Document printing, Design work, Consultation..."
-                value={serviceForm.description}
-                onChange={(e) => handleFormChange('description', e.target.value)}
-                rows={3}
-              />
-            </div>
-
-            {/* Category */}
-            <div>
-              <Label htmlFor="category">Category *</Label>
-              <Select
-                value={serviceForm.category}
-                onValueChange={(value: ServiceCategory) => handleFormChange('category', value)}
-              >
-                <SelectTrigger id="category">
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {serviceCategories.map(cat => (
-                    <SelectItem key={cat.value} value={cat.value}>
-                      {cat.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Quantity and Price */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="quantity">Quantity</Label>
-                <Input
-                  id="quantity"
-                  type="number"
-                  min="1"
-                  value={serviceForm.quantity}
-                  onChange={(e) => handleFormChange('quantity', parseInt(e.target.value) || 1)}
-                />
-              </div>
-              <div>
-                <Label htmlFor="unitPrice">Unit Price (Mk) *</Label>
-                <Input
-                  id="unitPrice"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={serviceForm.unitPrice}
-                  onChange={(e) => handleFormChange('unitPrice', parseFloat(e.target.value) || 0)}
-                />
-              </div>
-            </div>
-
-            {/* Total Display */}
-            <div className="p-3 bg-muted rounded-lg">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Total:</span>
-                <span className="text-lg font-bold">Mk {formatAmount(calculateTotal())}</span>
-              </div>
-            </div>
-
-            {/* Customer Information */}
-            <Separator />
-            <h4 className="text-sm font-medium flex items-center gap-2">
-              <User className="h-4 w-4" />
-              Customer Information (Optional)
-            </h4>
-
-            <div className="space-y-3">
-              <div>
-                <Label htmlFor="customerName">Customer Name</Label>
-                <Input
-                  id="customerName"
-                  placeholder="Full name"
-                  value={serviceForm.customerName}
-                  onChange={(e) => handleFormChange('customerName', e.target.value)}
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="customerPhone">Phone Number</Label>
-                <Input
-                  id="customerPhone"
-                  placeholder="+265 XXX XXX XXX"
-                  value={serviceForm.customerPhone}
-                  onChange={(e) => handleFormChange('customerPhone', e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* Notes */}
-            <div>
-              <Label htmlFor="notes">Additional Notes</Label>
-              <Textarea
-                id="notes"
-                placeholder="Any special instructions or details..."
-                value={serviceForm.notes}
-                onChange={(e) => handleFormChange('notes', e.target.value)}
-                rows={2}
-              />
-            </div>
-
-            {/* Status */}
-            <div>
-              <Label htmlFor="status">Status</Label>
-              <Select
-                value={serviceForm.status}
-                onValueChange={(value: ServiceItem['status']) => handleFormChange('status', value)}
-              >
-                <SelectTrigger id="status">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="invoiced">Invoiced</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <DialogFooter className="gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsAddServiceModalOpen(false)
-                resetForm()
-              }}
-              className="flex-1"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={isEditMode ? handleUpdateService : handleAddService}
-              className="flex-1"
-            >
-              {isEditMode ? (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  Update Service
-                </>
-              ) : (
-                <>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Service
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ServiceFormModal
+        open={isAddServiceModalOpen}
+        onOpenChange={setIsAddServiceModalOpen}
+        isEditMode={isEditMode}
+        serviceForm={serviceForm}
+        serviceCategories={serviceCategories}
+        calculateTotal={calculateTotal}
+        formatAmount={formatAmount}
+        onFormChange={handleFormChange}
+        onCancel={() => {
+          setIsAddServiceModalOpen(false)
+          resetForm()
+        }}
+        onSubmit={
+          isEditMode
+            ? handleUpdateService
+            : handleAddService
+        }
+      />
     </div>
   )
 }

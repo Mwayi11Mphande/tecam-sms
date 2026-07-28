@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { 
   Card, 
   CardContent, 
@@ -65,8 +65,10 @@ import { Label } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
+import { serviceApi } from "@/lib/services/service.service"
+import { saleService } from "@/lib/services/sale.service"
+import { formatMK } from "@/lib/currency"
 
-// Sample data interface
 interface ServiceSale {
   id: string
   serviceId: string
@@ -95,7 +97,6 @@ interface ServiceSummary {
 }
 
 export default function ShopOwnerServicesViewPage() {
-  // State for filters
   const [timeRange, setTimeRange] = useState<'today' | 'week' | 'month' | 'year' | 'custom'>('today')
   const [startDate, setStartDate] = useState<Date | undefined>(new Date())
   const [endDate, setEndDate] = useState<Date | undefined>(new Date())
@@ -104,125 +105,81 @@ export default function ShopOwnerServicesViewPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all")
   const [viewMode, setViewMode] = useState<'list' | 'chart'>('list')
 
-  // Sample service data
-  const [serviceSales, setServiceSales] = useState<ServiceSale[]>([
-    {
-      id: "1",
-      serviceId: "SRV-2024-001",
-      date: new Date().toISOString().split('T')[0],
-      customer: "John Smith",
-      phone: "+265 991 234 567",
-      serviceDescription: "Business Card Design & Printing",
-      category: "design",
-      quantity: 1,
-      unitPrice: 15000,
-      amount: 15000,
-      status: "completed",
-      notes: "Premium card stock"
-    },
-    {
-      id: "2",
-      serviceId: "SRV-2024-002",
-      date: new Date().toISOString().split('T')[0],
-      customer: "Sarah Johnson",
-      phone: "+265 992 345 678",
-      serviceDescription: "Document Printing (100 pages)",
-      category: "printing",
-      quantity: 100,
-      unitPrice: 50,
-      amount: 5000,
-      status: "completed",
-      notes: "Double-sided printing"
-    },
-    {
-      id: "3",
-      serviceId: "SRV-2024-003",
-      date: new Date(Date.now() - 86400000).toISOString().split('T')[0], // Yesterday
-      customer: "Mike Wilson",
-      phone: "+265 993 456 789",
-      serviceDescription: "Laptop Repair Service",
-      category: "repair",
-      quantity: 1,
-      unitPrice: 35000,
-      amount: 35000,
-      status: "completed"
-    },
-    {
-      id: "4",
-      serviceId: "SRV-2024-004",
-      date: new Date(Date.now() - 86400000).toISOString().split('T')[0],
-      customer: "Emma Davis",
-      serviceDescription: "Consultation - Business Setup",
-      category: "consultation",
-      quantity: 2,
-      unitPrice: 10000,
-      amount: 20000,
-      status: "pending"
-    },
-    {
-      id: "5",
-      serviceId: "SRV-2024-005",
-      date: new Date(Date.now() - 172800000).toISOString().split('T')[0], // 2 days ago
-      customer: "Robert Brown",
-      phone: "+265 994 567 890",
-      serviceDescription: "Flyer Design & Printing",
-      category: "design",
-      quantity: 1,
-      unitPrice: 25000,
-      amount: 25000,
-      status: "completed"
-    },
-    {
-      id: "6",
-      serviceId: "SRV-2024-006",
-      date: new Date(Date.now() - 259200000).toISOString().split('T')[0], // 3 days ago
-      customer: "Lisa Anderson",
-      serviceDescription: "Document Binding (50 copies)",
-      category: "stationery",
-      quantity: 50,
-      unitPrice: 300,
-      amount: 15000,
-      status: "completed"
-    },
-    {
-      id: "7",
-      serviceId: "SRV-2024-007",
-      date: new Date(Date.now() - 345600000).toISOString().split('T')[0], // 4 days ago
-      customer: "David Lee",
-      serviceDescription: "Photocopy Service",
-      category: "printing",
-      quantity: 500,
-      unitPrice: 10,
-      amount: 5000,
-      status: "cancelled"
-    },
-    {
-      id: "8",
-      serviceId: "SRV-2024-008",
-      date: new Date(Date.now() - 432000000).toISOString().split('T')[0], // 5 days ago
-      customer: "Maria Garcia",
-      phone: "+265 995 678 901",
-      serviceDescription: "Website Consultation",
-      category: "consultation",
-      quantity: 1,
-      unitPrice: 20000,
-      amount: 20000,
-      status: "completed"
-    },
-  ])
+  const [serviceSales, setServiceSales] = useState<ServiceSale[]>([])
+  const [services, setServices] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
-  // Categories for filtering
-  const categories = [
-    { value: 'all', label: 'All Categories' },
-    { value: 'printing', label: 'Printing & Copying' },
-    { value: 'design', label: 'Design Services' },
-    { value: 'consultation', label: 'Consultation' },
-    { value: 'repair', label: 'Repair Services' },
-    { value: 'stationery', label: 'Stationery Services' },
-    { value: 'other', label: 'Other Services' }
-  ]
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const userStr = localStorage.getItem("user")
+        if (!userStr) return
+        const user = JSON.parse(userStr)
+        const shopId = user.shopId || user.shop?.id
+        if (!shopId) return
 
-  // Status options
+        const [servicesRes, salesRes] = await Promise.all([
+          serviceApi.getAll(shopId),
+          saleService.getAll({ shopId }),
+        ])
+
+        setServices(servicesRes.data || [])
+
+        const sales = salesRes.data || []
+        const mapped: ServiceSale[] = []
+
+        sales.forEach((sale: any) => {
+          const items = sale.items || []
+          items.forEach((item: any) => {
+            if (item.type === "service") {
+              mapped.push({
+                id: sale.id,
+                serviceId: item.serviceId || sale.invoiceNo || `SRV-${sale.id}`,
+                date: new Date(sale.createdAt || sale.date).toISOString().split("T")[0],
+                customer: sale.customerName || sale.customer || "Unknown",
+                phone: sale.customerPhone || sale.phone,
+                serviceDescription: item.name || item.description,
+                category: item.category || "other",
+                quantity: item.quantity || 1,
+                unitPrice: item.unitPrice || 0,
+                amount: (item.unitPrice || 0) * (item.quantity || 1),
+                status: sale.status === "completed" ? "completed" : sale.status === "cancelled" ? "cancelled" : "pending",
+                notes: item.notes,
+              })
+            }
+          })
+        })
+
+        setServiceSales(mapped)
+      } catch (err: any) {
+        toast.error("Failed to load service data")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [])
+
+  const categories = useMemo(() => {
+    const unique = new Set(serviceSales.map(s => s.category))
+    const catMap: Record<string, string> = {
+      printing: "Printing & Copying",
+      design: "Design Services",
+      consultation: "Consultation",
+      repair: "Repair Services",
+      stationery: "Stationery Services",
+      other: "Other Services"
+    }
+    return [
+      { value: 'all', label: 'All Categories' },
+      ...Array.from(unique).map(c => ({
+        value: c,
+        label: catMap[c] || c.charAt(0).toUpperCase() + c.slice(1)
+      }))
+    ]
+  }, [serviceSales])
+
   const statusOptions = [
     { value: 'all', label: 'All Status' },
     { value: 'completed', label: 'Completed' },
@@ -230,15 +187,6 @@ export default function ShopOwnerServicesViewPage() {
     { value: 'cancelled', label: 'Cancelled' }
   ]
 
-  // Format amount
-  const formatAmount = (amount: number) => {
-    return `Mk ${amount.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    })}`
-  }
-
-  // Format date
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleDateString('en-US', {
@@ -248,7 +196,6 @@ export default function ShopOwnerServicesViewPage() {
     })
   }
 
-  // Get period label - MOVE THIS BEFORE calculateSummary
   const getPeriodLabel = () => {
     switch(timeRange) {
       case 'today': return 'Today'
@@ -260,7 +207,6 @@ export default function ShopOwnerServicesViewPage() {
     }
   }
 
-  // Get status badge
   const getStatusBadge = (status: ServiceSale['status']) => {
     const variants = {
       completed: { variant: "default", text: "Completed", icon: CheckCircle },
@@ -279,7 +225,6 @@ export default function ShopOwnerServicesViewPage() {
     )
   }
 
-  // Get category badge
   const getCategoryBadge = (category: string) => {
     const colors: Record<string, string> = {
       printing: "bg-blue-100 text-blue-800 border-blue-200",
@@ -297,12 +242,10 @@ export default function ShopOwnerServicesViewPage() {
     )
   }
 
-  // Calculate summary based on time range - MOVED AFTER getPeriodLabel
   const calculateSummary = (): ServiceSummary => {
     const now = new Date()
     let filtered = [...serviceSales]
     
-    // Filter by time range
     switch(timeRange) {
       case 'today':
         const today = now.toISOString().split('T')[0]
@@ -330,7 +273,6 @@ export default function ShopOwnerServicesViewPage() {
         break
     }
     
-    // Apply additional filters
     if (statusFilter !== 'all') {
       filtered = filtered.filter(sale => sale.status === statusFilter)
     }
@@ -349,14 +291,12 @@ export default function ShopOwnerServicesViewPage() {
       )
     }
 
-    // Calculate totals
     const totalServices = filtered.length
     const totalRevenue = filtered.reduce((sum, sale) => sum + sale.amount, 0)
     const averageServiceValue = totalServices > 0 ? totalRevenue / totalServices : 0
     const completedServices = filtered.filter(s => s.status === 'completed').length
     const pendingServices = filtered.filter(s => s.status === 'pending').length
     
-    // Find top category
     const categoryCounts = filtered.reduce((acc, sale) => {
       acc[sale.category] = (acc[sale.category] || 0) + sale.amount
       return acc
@@ -365,25 +305,23 @@ export default function ShopOwnerServicesViewPage() {
     const topCategory = Object.entries(categoryCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'None'
 
     return {
-      period: getPeriodLabel(), // Now this will work because getPeriodLabel is defined above
+      period: getPeriodLabel(),
       totalServices,
       totalRevenue,
       averageServiceValue,
       completedServices,
       pendingServices,
       topCategory,
-      revenueGrowth: 12.5, // Mock growth percentage
-      serviceGrowth: 8.2
+      revenueGrowth: 0,
+      serviceGrowth: 0
     }
   }
 
   const summary = calculateSummary()
 
-  // Get filtered services for display
   const filteredServices = () => {
     let filtered = [...serviceSales]
     
-    // Time range filter
     const now = new Date()
     switch(timeRange) {
       case 'today':
@@ -412,7 +350,6 @@ export default function ShopOwnerServicesViewPage() {
         break
     }
     
-    // Additional filters
     if (statusFilter !== 'all') {
       filtered = filtered.filter(sale => sale.status === statusFilter)
     }
@@ -434,50 +371,129 @@ export default function ShopOwnerServicesViewPage() {
     return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
   }
 
-  // Chart data
-  const chartData = [
-    { name: 'Mon', services: 4, revenue: 45000 },
-    { name: 'Tue', services: 6, revenue: 62000 },
-    { name: 'Wed', services: 8, revenue: 78000 },
-    { name: 'Thu', services: 5, revenue: 52000 },
-    { name: 'Fri', services: 7, revenue: 68000 },
-    { name: 'Sat', services: 9, revenue: 85000 },
-    { name: 'Sun', services: 3, revenue: 32000 },
-  ]
+  const chartData = (() => {
+    const dayMap: Record<string, { services: number; revenue: number }> = {}
+    serviceSales.forEach(sale => {
+      const dayName = new Date(sale.date).toLocaleDateString("en-US", { weekday: "short" })
+      if (!dayMap[dayName]) dayMap[dayName] = { services: 0, revenue: 0 }
+      dayMap[dayName].services += sale.quantity
+      dayMap[dayName].revenue += sale.amount
+    })
+    return ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(day => ({
+      name: day,
+      services: dayMap[day]?.services || 0,
+      revenue: dayMap[day]?.revenue || 0,
+    }))
+  })()
 
-  const categoryData = [
-    { name: 'Printing', value: 25, color: '#3b82f6' },
-    { name: 'Design', value: 35, color: '#8b5cf6' },
-    { name: 'Consultation', value: 20, color: '#10b981' },
-    { name: 'Repair', value: 15, color: '#f97316' },
-    { name: 'Stationery', value: 5, color: '#f59e0b' },
-  ]
+  const categoryData = (() => {
+    const catMap: Record<string, number> = {}
+    const colorMap: Record<string, string> = {
+      printing: "#3b82f6", design: "#8b5cf6", consultation: "#10b981",
+      repair: "#f97316", stationery: "#f59e0b", other: "#6b7280",
+    }
+    serviceSales.forEach(sale => {
+      catMap[sale.category] = (catMap[sale.category] || 0) + sale.amount
+    })
+    const total = Object.values(catMap).reduce((sum, v) => sum + v, 0)
+    return Object.entries(catMap).map(([name, value]) => ({
+      name: name.charAt(0).toUpperCase() + name.slice(1),
+      value: total > 0 ? Math.round((value / total) * 100) : 0,
+      color: colorMap[name] || "#6b7280",
+    }))
+  })()
 
-  // Handle export
   const handleExport = () => {
-    toast.success("Export initiated", {
-      description: "Service data will be downloaded shortly",
-      duration: 3000,
-    })
+    const csv = [
+      ["Service ID","Date","Customer","Description","Category","Quantity","Unit Price","Amount","Status"].join(","),
+      ...serviceSales.map(s =>
+        [s.serviceId, s.date, s.customer, `"${s.serviceDescription}"`, s.category, s.quantity, s.unitPrice, s.amount, s.status].join(",")
+      ),
+    ].join("\n")
+    const blob = new Blob([csv], { type: "text/csv" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `service-sales-${new Date().toISOString().split("T")[0]}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast.success("Export completed", { duration: 3000 })
   }
 
-  // Handle refresh
-  const handleRefresh = () => {
-    toast.info("Refreshing service data", {
-      description: "Fetching latest service records",
-      duration: 2000,
-    })
+  const handleRefresh = async () => {
+    setIsLoading(true)
+    try {
+      const userStr = localStorage.getItem("user")
+      if (!userStr) return
+      const user = JSON.parse(userStr)
+      const shopId = user.shopId || user.shop?.id
+      if (!shopId) return
+
+      const [servicesRes, salesRes] = await Promise.all([
+        serviceApi.getAll(shopId),
+        saleService.getAll({ shopId }),
+      ])
+
+      setServices(servicesRes.data || [])
+
+      const sales = salesRes.data || []
+      const mapped: ServiceSale[] = []
+
+      sales.forEach((sale: any) => {
+        const items = sale.items || []
+        items.forEach((item: any) => {
+          if (item.type === "service") {
+            mapped.push({
+              id: sale.id,
+              serviceId: item.serviceId || sale.invoiceNo || `SRV-${sale.id}`,
+              date: new Date(sale.createdAt || sale.date).toISOString().split("T")[0],
+              customer: sale.customerName || sale.customer || "Unknown",
+              phone: sale.customerPhone || sale.phone,
+              serviceDescription: item.name || item.description,
+              category: item.category || "other",
+              quantity: item.quantity || 1,
+              unitPrice: item.unitPrice || 0,
+              amount: (item.unitPrice || 0) * (item.quantity || 1),
+              status: sale.status === "completed" ? "completed" : sale.status === "cancelled" ? "cancelled" : "pending",
+              notes: item.notes,
+            })
+          }
+        })
+      })
+
+      setServiceSales(mapped)
+      toast.success("Service data refreshed", { duration: 2000 })
+    } catch {
+      toast.error("Failed to refresh service data")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  // Handle print
   const handlePrint = (service: ServiceSale) => {
-    toast.info("Printing receipt", {
-      description: `Receipt for ${service.serviceId}`,
-      duration: 2000,
-    })
+    const printWindow = window.open("", "_blank")
+    if (!printWindow) return
+    printWindow.document.write(`
+      <html><head><title>Receipt - ${service.serviceId}</title>
+      <style>body{font-family:monospace;padding:20px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #ddd;padding:8px;text-align:left}h2{margin-bottom:4px}.text-right{text-align:right}</style>
+      </head><body>
+      <h2>Service Receipt</h2>
+      <p>${service.serviceId} | ${service.date}</p>
+      <hr/>
+      <p><strong>Customer:</strong> ${service.customer}${service.phone ? ` (${service.phone})` : ""}</p>
+      <hr/>
+      <table><tr><th>Description</th><th>Category</th><th class="text-right">Qty</th><th class="text-right">Unit Price</th><th class="text-right">Amount</th></tr>
+      <tr><td>${service.serviceDescription}</td><td>${service.category}</td><td class="text-right">${service.quantity}</td><td class="text-right">${formatMK(service.unitPrice)}</td><td class="text-right">${formatMK(service.amount)}</td></tr>
+      </table>
+      <hr/>
+      <p><strong>Status:</strong> ${service.status}</p>
+      ${service.notes ? `<p><strong>Notes:</strong> ${service.notes}</p>` : ""}
+      </body></html>
+    `)
+    printWindow.document.close()
+    printWindow.print()
   }
 
-  // Handle view details
   const handleViewDetails = (service: ServiceSale) => {
     toast.info("Viewing service details", {
       description: `Service: ${service.serviceDescription}`,
@@ -634,15 +650,15 @@ export default function ShopOwnerServicesViewPage() {
           <CardContent>
             <div className="text-2xl font-bold">{summary.totalServices}</div>
             <div className="flex items-center text-xs mt-1">
-              {summary.serviceGrowth >= 0 ? (
+              {summary.serviceGrowth > 0 ? (
                 <>
                   <ArrowUpRight className="h-3 w-3 text-green-500 mr-1" />
                   <span className="text-green-500">+{summary.serviceGrowth}%</span>
                 </>
               ) : (
                 <>
-                  <ArrowDownRight className="h-3 w-3 text-red-500 mr-1" />
-                  <span className="text-red-500">{summary.serviceGrowth}%</span>
+                  <ArrowDownRight className="h-3 w-3 text-muted-foreground mr-1" />
+                  <span className="text-muted-foreground">-</span>
                 </>
               )}
               <span className="text-muted-foreground ml-2">from previous period</span>
@@ -658,17 +674,17 @@ export default function ShopOwnerServicesViewPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">Mk {summary.totalRevenue.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{formatMK(summary.totalRevenue)}</div>
             <div className="flex items-center text-xs mt-1">
-              {summary.revenueGrowth >= 0 ? (
+              {summary.revenueGrowth > 0 ? (
                 <>
                   <ArrowUpRight className="h-3 w-3 text-green-500 mr-1" />
                   <span className="text-green-500">+{summary.revenueGrowth}%</span>
                 </>
               ) : (
                 <>
-                  <ArrowDownRight className="h-3 w-3 text-red-500 mr-1" />
-                  <span className="text-red-500">{summary.revenueGrowth}%</span>
+                  <ArrowDownRight className="h-3 w-3 text-muted-foreground mr-1" />
+                  <span className="text-muted-foreground">-</span>
                 </>
               )}
               <span className="text-muted-foreground ml-2">from previous period</span>
@@ -850,7 +866,7 @@ export default function ShopOwnerServicesViewPage() {
                         {getCategoryBadge(service.category)}
                       </TableCell>
                       <TableCell className="text-right font-bold">
-                        {formatAmount(service.amount)}
+                        {formatMK(service.amount)}
                       </TableCell>
                       <TableCell>
                         {getStatusBadge(service.status)}
@@ -895,7 +911,7 @@ export default function ShopOwnerServicesViewPage() {
             <CardTitle className="text-sm font-medium">Average Service Value</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatAmount(summary.averageServiceValue)}</div>
+            <div className="text-2xl font-bold">{formatMK(summary.averageServiceValue)}</div>
             <div className="text-xs text-muted-foreground mt-1">
               Average revenue per service
             </div>

@@ -11,7 +11,7 @@ export function StatsCards() {
           <DollarSign className="h-4 w-4 text-green-500" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">$2,450</div>
+          <div className="text-2xl font-bold">MK2,450</div>
           <p className="text-xs text-green-500">
             <TrendingUp className="inline h-3 w-3" /> +12.5% from yesterday
           </p>

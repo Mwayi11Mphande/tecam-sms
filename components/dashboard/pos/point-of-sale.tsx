@@ -1,57 +1,109 @@
 "use client"
-import { useEffect, useState } from "react"
-import { Search, Plus, Minus, Trash2, Printer, Scan, ShoppingCart, X, Barcode, CreditCard, Smartphone, Wallet, Building, ChevronLeft, Receipt, User } from "lucide-react"
+import { useState, useEffect } from "react"
+import { 
+  Search, 
+  Plus, 
+  Minus, 
+  Trash2, 
+  Printer, 
+  Scan, 
+  ShoppingCart,
+  X,
+  Barcode,
+  Wallet,
+  ChevronLeft,
+  Receipt,
+  User
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog"
 import { PaymentModal } from "../../modal/paymentModal"
 import { toast } from "sonner"
 import { ReceiptPDF } from "../../pdf/receipt/ReceiptPDF"
 import { Label } from "../../ui/label"
-import { useProductsStore } from "@/stores/products/productsStore"
-import { Category, Product } from "@/lib/api/types"
-import { useShopStore } from "@/stores/shop/shopStore"
-import { createSale } from "@/services/sales/sales.api"
+import { productService } from "@/lib/services/product.service"
+import { categoryService } from "@/lib/services/category.service"
+import { shopService } from "@/lib/services/shop.service"
+import { saleService } from "@/lib/services/sale.service"
 
-type CartItem = {
-  id: string
+interface Product {
+  id: number
+  name: string
+  price: number
+  category: string
+  barcode: string
+}
+
+interface CartItem {
+  id: number
   name: string
   price: number
   quantity: number
+  total: number
 }
 
 type PaymentMethod = "cash" | "card" | "mobile" | "bank"
 
-type POSProduct = {
-  id: string
-  name: string
-  price: number
-  category: string
-  barcode?: string
-}
-
-const mapProductToPOS = (p: Product, categories: Category[]): POSProduct => {
-  return {
-    id: String(p.id),
-    name: p.name,
-    price: Number(p.price),
-    category:
-      categories.find(c => c.id === p.categoryId)?.name || "Uncategorized",
-    barcode: p.sku || "",
-  }
-}
-
 export function PointOfSale() {
-  const shop = useShopStore((s) => s.shop);
-  const { products, fetchProducts, categories, fetchCategories } = useProductsStore()
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("All")
   const [cart, setCart] = useState<CartItem[]>([])
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [shopInfo, setShopInfo] = useState<{ name: string; phone?: string; email?: string; address?: string } | null>(null)
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+        const shopId = localStorage.getItem("shopId") || ""
+        const [productsRes, categoriesRes, shopRes] = await Promise.all([
+          productService.getAll({ shopId }),
+          categoryService.getAll(shopId),
+          shopId ? shopService.getById(shopId).catch(() => null) : Promise.resolve(null),
+        ])
+        if (shopRes) {
+          const s = Array.isArray(shopRes) ? null : (shopRes.data || shopRes)
+          setShopInfo(s ? { name: s.name || "", phone: s.phone, email: s.email, address: s.address } : null)
+        }
+        const productsList = Array.isArray(productsRes) ? productsRes : (productsRes.data || [])
+        const categoriesList = Array.isArray(categoriesRes) ? categoriesRes : (categoriesRes.data || [])
+        const mapped: Product[] = productsList.map((p: any) => ({
+          id: p.id,
+          name: p.name || "",
+          price: Number(p.price) ?? 0,
+          category: (p.category?.name) || categoriesList.find((c: any) => c.id === p.categoryId)?.name || "Uncategorized",
+          barcode: p.barcode || p.sku || ""
+        }))
+        setProducts(mapped)
+      } catch (err: any) {
+        setError(err.message || "Failed to load products")
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [])
   const [isScanning, setIsScanning] = useState(false)
   const [showCart, setShowCart] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash")
@@ -64,80 +116,61 @@ export function PointOfSale() {
     email?: string
   }>({})
   const [showCustomerModal, setShowCustomerModal] = useState(false)
-  const [customerForm, setCustomerForm] = useState({ name: "", phone: "", email: "" })
-  const [completedSale, setCompletedSale] = useState<any>(null)
-  const [receiptItems, setReceiptItems] = useState<CartItem[]>([])
+  const [customerForm, setCustomerForm] = useState({
+    name: "",
+    phone: "",
+    email: ""
+  })
 
-  useEffect(() => {
-    fetchProducts()
-    fetchCategories()
-  }, [fetchProducts, fetchCategories])
-
-  const posProducts: POSProduct[] = products.map(p =>
-    mapProductToPOS(p, categories)
-  )
   // Filter products based on search and category
-  const filteredProducts = posProducts.filter(product => {
-    const matchesSearch =
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (product.barcode ?? "").includes(searchTerm)
-
-    const matchesCategory =
-      selectedCategory === "All" || product.category === selectedCategory
-
+  const filteredProducts = products.filter(product => {
+    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         product.barcode.includes(searchTerm)
+    const matchesCategory = selectedCategory === "All" || product.category === selectedCategory
     return matchesSearch && matchesCategory
   })
 
   // Get unique categories
-  const categoryList = [
-    "All",
-    ...categories.map(c => c.name)
-  ]
+  const categories = ["All", ...new Set(products.map(p => p.category))]
 
   // Cart functions
-  const addToCart = (product: POSProduct) => {
+  const addToCart = (product: Product) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id)
-
       if (existing) {
         return prev.map(item =>
           item.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
+            ? { ...item, quantity: item.quantity + 1, total: (item.quantity + 1) * item.price }
             : item
         )
       }
-
-      return [
-        ...prev,
-        {
-          id: product.id,
-          name: product.name,
-          price: product.price,
-          quantity: 1
-        }
-      ]
+      return [...prev, { 
+        id: product.id, 
+        name: product.name, 
+        price: product.price, 
+        quantity: 1, 
+        total: product.price 
+      }]
     })
   }
 
-  const updateQuantity = (id: string, change: number) => {
-    setCart(prev =>
-      prev
-        .map(item => {
-          if (item.id === id) {
-            const newQuantity = Math.max(0, item.quantity + change)
-
-            return {
-              ...item,
-              quantity: newQuantity
-            }
+  const updateQuantity = (id: number, change: number) => {
+    setCart(prev => 
+      prev.map(item => {
+        if (item.id === id) {
+          const newQuantity = Math.max(0, item.quantity + change)
+          return { 
+            ...item, 
+            quantity: newQuantity, 
+            total: newQuantity * item.price 
           }
-          return item
-        })
-        .filter(item => item.quantity > 0)
+        }
+        return item
+      }).filter(item => item.quantity > 0)
     )
   }
 
-  const removeFromCart = (id: string) => {
+  const removeFromCart = (id: number) => {
     setCart(prev => prev.filter(item => item.id !== id))
   }
 
@@ -145,16 +178,10 @@ export function PointOfSale() {
     setCart([])
   }
 
-  const vatRate = shop?.vatRegistered ? Number(shop.vatRate) : 0
-
-  const total = cart.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0
-  )
-
-  // Extract VAT from total
-  const subtotal = total / (1 + vatRate)
-  const tax = total - subtotal
+  // Calculate totals
+  const subtotal = cart.reduce((sum, item) => sum + item.total, 0)
+  const tax = subtotal * 0.08
+  const total = subtotal + tax
 
   // Generate transaction ID
   const generateTransactionId = () => {
@@ -170,7 +197,7 @@ export function PointOfSale() {
       })
       return
     }
-
+    
     // Show customer info modal before payment
     setShowCustomerModal(true)
   }
@@ -178,81 +205,43 @@ export function PointOfSale() {
   // Handle payment complete
   const handlePaymentComplete = async () => {
     try {
+      const shopId = localStorage.getItem("shopId") || ""
+      const saleItems = cart.map(item => ({
+        productId: String(item.id),
+        type: "PRODUCT" as const,
+        name: item.name,
+        quantity: item.quantity,
+        unitPrice: item.price,
+      }))
 
-      const payload = {
-        paymentMethod: paymentMethod.toUpperCase() as
-          | "CASH"
-          | "CARD"
-          | "MOBILE"
-          | "BANK",
-
-        items: cart.map(item => ({
-          productId: item.id,
-          quantity: item.quantity,
-        })),
-
+      await saleService.create({
+        shopId,
+        items: saleItems,
+        paymentMethod,
         amountPaid: total,
-      }
-
-      console.log("SALE PAYLOAD:", payload)
-
-      const response = await createSale(payload)
-
-      console.log("SALE RESPONSE:", response)
-
-      setCompletedSale(response.sale)
-
-      const newTransactionId =
-        response?.transactionId || generateTransactionId()
-
-      setTransactionId(response.sale.receiptNumber)
-
-      // Reset customer info after payment
-      setCustomerForm({
-        name: "",
-        phone: "",
-        email: "",
       })
 
-      setCustomerInfo({})
+      const newTransactionId = generateTransactionId()
+      setTransactionId(newTransactionId)
 
-      // Show success toast
+      setCustomerForm({ name: "", phone: "", email: "" })
+      setCustomerInfo({})
+      setPaymentModalOpen(false)
+      clearCart()
+
       toast.success("Payment Completed!", {
         description: `Sale of Mk ${formatAmount(total)} processed successfully.`,
         duration: 5000,
         action: {
           label: "View Receipt",
-          onClick: () => {
-            setShowReceiptModal(true)
-          },
+          onClick: () => setShowReceiptModal(true),
         },
       })
 
-      // Refresh products/stock
-      await fetchProducts()
-
-      // Show receipt modal
-      setTimeout(() => {
-        setShowReceiptModal(true)
-      }, 500)
-
-      // Close payment modal
-      setPaymentModalOpen(false)
-
-      // Set receipt items
-      setReceiptItems(cart)
-
-      // Clear cart AFTER successful save
-      clearCart()
-
-    } catch (error: any) {
-
-      console.error("SALE ERROR:", error)
-
-      toast.error("Failed to process sale", {
-        description:
-          error?.response?.data?.message ||
-          "Something went wrong while saving the sale.",
+      setTimeout(() => setShowReceiptModal(true), 500)
+    } catch (err: any) {
+      toast.error("Sale Failed", {
+        description: err.message || "Could not complete the sale. Please try again.",
         duration: 5000,
       })
     }
@@ -267,13 +256,13 @@ export function PointOfSale() {
       })
       return
     }
-
+    
     const newTransactionId = generateTransactionId()
     setTransactionId(newTransactionId)
-
+    
     // Show receipt modal immediately
     setShowReceiptModal(true)
-
+    
     toast.info("Opening Receipt", {
       description: "Receipt ready for download or print",
       duration: 2000,
@@ -283,26 +272,23 @@ export function PointOfSale() {
   // Simulate barcode scan
   const handleScan = () => {
     if (isScanning) return
-
+    
     setIsScanning(true)
-
     toast.info("Scanning Barcode...", {
       description: "Please wait while scanning",
       duration: 1500,
     })
-
+    
     setTimeout(() => {
+      if (products.length === 0) return
       const randomProduct = products[Math.floor(Math.random() * products.length)]
-
-      const mappedProduct = mapProductToPOS(randomProduct, categories)
-
-      addToCart(mappedProduct)
-
+      addToCart(randomProduct)
+      
       toast.success("Product Scanned!", {
-        description: `${mappedProduct.name} added to cart.`,
+        description: `${randomProduct.name} added to cart.`,
         duration: 2000,
       })
-
+      
       setIsScanning(false)
     }, 1500)
   }
@@ -338,17 +324,22 @@ export function PointOfSale() {
               Transaction ID: {transactionId}
             </DialogDescription>
           </DialogHeader>
-
+          
           <ReceiptPDF
-            items={receiptItems}
-            subtotal={Number(completedSale?.subtotal || 0)}
-            tax={Number(completedSale?.vatAmount || 0)}
-            total={Number(completedSale?.total || 0)}
-            paymentMethod={completedSale?.paymentMethod || paymentMethod}
-            transactionId={completedSale?.receiptNumber || transactionId}
+            items={cart}
+            subtotal={subtotal}
+            tax={tax}
+            total={total}
+            paymentMethod={paymentMethod}
+            transactionId={transactionId}
             customerInfo={customerInfo}
+            shopName={shopInfo?.name}
+            shopAddress={shopInfo?.address}
+            shopPhone={shopInfo?.phone}
+            shopEmail={shopInfo?.email}
+            cashierName={(() => { try { return JSON.parse(localStorage.getItem("user") || "{}").fullName } catch { return "" } })()}
           />
-
+          
           <DialogFooter className="gap-2">
             <Button
               variant="outline"
@@ -385,7 +376,7 @@ export function PointOfSale() {
               Optional: Add customer details for the receipt
             </DialogDescription>
           </DialogHeader>
-
+          
           <div className="space-y-4">
             <div>
               <Label htmlFor="customerName">Name</Label>
@@ -393,20 +384,20 @@ export function PointOfSale() {
                 id="customerName"
                 placeholder="Full name"
                 value={customerForm.name}
-                onChange={(e) => setCustomerForm({ ...customerForm, name: e.target.value })}
+                onChange={(e) => setCustomerForm({...customerForm, name: e.target.value})}
               />
             </div>
-
+            
             <div>
               <Label htmlFor="customerPhone">Phone Number</Label>
               <Input
                 id="customerPhone"
                 placeholder="+265 XXX XXX XXX"
                 value={customerForm.phone}
-                onChange={(e) => setCustomerForm({ ...customerForm, phone: e.target.value })}
+                onChange={(e) => setCustomerForm({...customerForm, phone: e.target.value})}
               />
             </div>
-
+            
             <div>
               <Label htmlFor="customerEmail">Email (Optional)</Label>
               <Input
@@ -414,11 +405,11 @@ export function PointOfSale() {
                 type="email"
                 placeholder="customer@example.com"
                 value={customerForm.email}
-                onChange={(e) => setCustomerForm({ ...customerForm, email: e.target.value })}
+                onChange={(e) => setCustomerForm({...customerForm, email: e.target.value})}
               />
             </div>
           </div>
-
+          
           <DialogFooter className="gap-2">
             <Button
               variant="outline"
@@ -470,13 +461,13 @@ export function PointOfSale() {
               </p>
             </div>
           </div>
-
+          
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="text-sm">
               {totalItems} items
             </Badge>
-            <Button
-              variant="outline"
+            <Button 
+              variant="outline" 
               size="sm"
               onClick={() => {
                 if (cart.length === 0) {
@@ -513,8 +504,8 @@ export function PointOfSale() {
                     />
                   </div>
                   <div className="flex gap-2">
-                    <Button
-                      onClick={handleScan}
+                    <Button 
+                      onClick={handleScan} 
                       disabled={isScanning}
                       className="flex-1 sm:flex-none"
                     >
@@ -529,17 +520,17 @@ export function PointOfSale() {
                     </Button>
                   </div>
                 </div>
-
+                
                 <ScrollArea className="w-full mt-4">
                   <div className="flex gap-2 pb-2">
                     {categories.map(category => (
                       <Badge
-                        key={category.id}
-                        variant={selectedCategory === category.name ? "default" : "outline"}
+                        key={category}
+                        variant={selectedCategory === category ? "default" : "outline"}
                         className="cursor-pointer whitespace-nowrap"
-                        onClick={() => setSelectedCategory(category.name)}
+                        onClick={() => setSelectedCategory(category)}
                       >
-                        {category.name}
+                        {category}
                       </Badge>
                     ))}
                   </div>
@@ -558,8 +549,8 @@ export function PointOfSale() {
                 <ScrollArea className="h-[400px] sm:h-[500px]">
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-4">
                     {filteredProducts.map(product => (
-                      <Card
-                        key={product.id}
+                      <Card 
+                        key={product.id} 
                         className="cursor-pointer transition-all duration-200 hover:shadow-md"
                         onClick={() => {
                           addToCart(product)
@@ -578,8 +569,8 @@ export function PointOfSale() {
                                 Mk {formatAmount(product.price)}
                               </p>
                             </div>
-                            <Button
-                              size="sm"
+                            <Button 
+                              size="sm" 
                               onClick={(e) => {
                                 e.stopPropagation()
                                 addToCart(product)
@@ -607,8 +598,8 @@ export function PointOfSale() {
                   <div className="font-bold text-lg">Mk {formatAmount(total)}</div>
                 </div>
                 <div className="flex gap-2">
-                  <Button
-                    variant="outline"
+                  <Button 
+                    variant="outline" 
                     size="sm"
                     onClick={() => {
                       if (cart.length === 0) {
@@ -625,7 +616,7 @@ export function PointOfSale() {
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
-                  <Button
+                  <Button 
                     onClick={() => setShowCart(true)}
                     disabled={cart.length === 0}
                   >
@@ -678,7 +669,7 @@ export function PointOfSale() {
                             </p>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="font-bold text-foreground">Mk {formatAmount(item.price * item.quantity)}</span>
+                            <span className="font-bold text-foreground">Mk {formatAmount(item.total)}</span>
                             <div className="flex items-center gap-1">
                               <Button
                                 size="sm"
@@ -741,104 +732,27 @@ export function PointOfSale() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="p-4">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Wallet className="h-4 w-4" />
-                  Payment Mode
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 pt-0">
-                <Select
-                  value={paymentMethod}
-                  onValueChange={(value: PaymentMethod) => setPaymentMethod(value)}
+            {cart.length > 0 && (
+              <div className="border-t p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="h-14"
+                  onClick={handlePrintReceipt}
                 >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select payment method" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cash" className="flex items-center gap-2">
-                      <Wallet className="h-4 w-4 mr-2" />
-                      Cash
-                    </SelectItem>
-                    <SelectItem value="card" className="flex items-center gap-2">
-                      <CreditCard className="h-4 w-4 mr-2" />
-                      Bank Card
-                    </SelectItem>
-                    <SelectItem value="mobile" className="flex items-center gap-2">
-                      <Smartphone className="h-4 w-4 mr-2" />
-                      Mobile Money
-                    </SelectItem>
-                    <SelectItem value="bank" className="flex items-center gap-2">
-                      <Building className="h-4 w-4 mr-2" />
-                      Bank Transfer
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="p-4">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <User className="h-4 w-4" />
-                  Customer
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 pt-0">
-                {customerInfo.name ? (
-                  <div className="space-y-2">
-                    <div className="text-sm font-medium text-foreground">{customerInfo.name}</div>
-                    {customerInfo.phone && (
-                      <div className="text-sm text-muted-foreground">{customerInfo.phone}</div>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setCustomerForm({ name: "", phone: "", email: "" })
-                        setCustomerInfo({})
-                      }}
-                      className="w-full mt-2"
-                    >
-                      Change Customer
-                    </Button>
-                  </div>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setShowCustomerModal(true)}
-                    className="w-full"
-                  >
-                    <User className="h-4 w-4 mr-2" />
-                    Add Customer
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Button
-                size="lg"
-                variant="outline"
-                className="h-14"
-                onClick={handlePrintReceipt}
-                disabled={cart.length === 0}
-              >
-                <Printer className="h-5 w-5 mr-2" />
-                Print Receipt
-              </Button>
-              <Button
-                size="lg"
-                className="h-14"
-                onClick={handleCheckout}
-                disabled={cart.length === 0}
-              >
-                <ShoppingCart className="h-5 w-5 mr-2" />
-                Checkout
-              </Button>
-            </div>
+                  <Printer className="h-5 w-5 mr-2" />
+                  Print Receipt
+                </Button>
+                <Button
+                  size="lg"
+                  className="h-14"
+                  onClick={handleCheckout}
+                >
+                  <ShoppingCart className="h-5 w-5 mr-2" />
+                  Checkout
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>

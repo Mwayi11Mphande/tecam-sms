@@ -1,7 +1,6 @@
-// app/shop-owner/staff/page.tsx
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,6 +15,15 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import {
   Search,
   Filter,
   UserPlus,
@@ -28,7 +36,8 @@ import {
   Edit,
   MoreVertical,
   CalendarDays,
-  Trash2
+  Trash2,
+  Key,
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -36,108 +45,69 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { StaffActionModal } from "@/components/modal/StaffActionModal"
 import { AddStaffModal } from "@/components/modal/AddStaffModal"
-import { useStaffStore } from "@/stores/staff/staffStore"
-import { Staff } from "@/lib/api/types"
-
-// Import the Add Staff Modal component
-
-type StaffMember = {
-  id: number
-  name: string
-  role: string
-  email: string
-  phone: string
-  joinDate: string
-  status: string
-  avatar: string
-  address?: string
-  emergencyContact?: string
-  department?: string
-}
-
-type ModalMode = 'view' | 'edit' | 'schedule' | 'delete'
+import { userService } from "@/lib/services/user.service"
 
 export default function StaffManagementPage() {
-  const { staff, fetchStaff, createStaff, loading } = useStaffStore()
-
-  useEffect(() => {
-    fetchStaff()
-  }, [fetchStaff])
-
-  const [actionModalState, setActionModalState] = useState<{
-    isOpen: boolean
-    mode: ModalMode
-    staff: Staff | null
-  }>({
-    isOpen: false,
-    mode: 'view',
-    staff: null
-  })
-
+  const [staffMembers, setStaffMembers] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [isAddStaffModalOpen, setIsAddStaffModalOpen] = useState(false)
+  const [passwordResetModal, setPasswordResetModal] = useState<{ open: boolean; staff: any }>({ open: false, staff: null })
+  const [newPassword, setNewPassword] = useState("")
+  const [resetting, setResetting] = useState(false)
 
-  const staffStats = {
-    total: staff.length,
-    active: staff.filter(s => s.isActive).length,
-    inactive: staff.filter(s => !s.isActive).length,
-    positions: [...new Set(staff.map(s => s.role))]
-  }
-
-  const handleOpenModal = (mode: ModalMode, staff: Staff) => {
-    setActionModalState({
-      isOpen: true,
-      mode,
-      staff
-    })
-  }
-
-  const handleCloseModal = () => {
-    setActionModalState({
-      isOpen: false,
-      mode: 'view',
-      staff: null
-    })
-  }
-
-  const handleSaveStaff = (updatedStaff: Staff) => {
-    // setStaffMembers(prev =>
-    //   prev.map(staff =>
-    //     staff.id === updatedStaff.id ? updatedStaff : staff
-    //   )
-    // )
-    // // Show success toast
-    // alert("Staff details updated successfully!")
-  }
-
-  const handleDeleteStaff = (staffId: number) => {
-    // setStaffMembers(prev => prev.filter(staff => staff.id !== staffId))
-    // // Show success toast
-    // alert("Staff member removed successfully!")
-  }
-
-  const handleAddStaff = async (newStaff: {
-    fullName: string
-    email: string
-    password: string
-  }) => {
+  const fetchStaff = async () => {
     try {
-      await createStaff(newStaff)
-      setIsAddStaffModalOpen(false)
-    } catch (error) {
-      console.error(error)
+      setLoading(true)
+      const res = await userService.getStaff()
+      setStaffMembers(res.data || [])
+    } catch (err) {
+      console.error("Failed to load staff:", err)
+    } finally {
+      setLoading(false)
     }
   }
+
+  useEffect(() => { fetchStaff() }, [])
+
+  const staffStats = {
+    total: staffMembers.length,
+    active: staffMembers.filter((s: any) => s.isActive).length,
+  }
+
+  const handleAddStaff = async (data: { fullName: string; email: string; password: string }) => {
+    try {
+      await userService.createCashier({ fullName: data.fullName, email: data.email, password: data.password })
+      await fetchStaff()
+      setIsAddStaffModalOpen(false)
+    } catch (err: any) {
+      alert(err.message || "Failed to add staff member")
+    }
+  }
+
+  const handleResetPassword = async () => {
+    if (!passwordResetModal.staff || !newPassword) return
+    setResetting(true)
+    try {
+      await userService.resetPassword(passwordResetModal.staff.id, newPassword)
+      setPasswordResetModal({ open: false, staff: null })
+      setNewPassword("")
+      alert("Password reset successfully")
+    } catch (err: any) {
+      alert(err.message || "Failed to reset password")
+    } finally {
+      setResetting(false)
+    }
+  }
+
+  if (loading) return <div className="flex items-center justify-center h-96">Loading staff...</div>
 
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Staff Management</h1>
-          <p className="text-muted-foreground">
-            Manage your store staff and their roles
-          </p>
+          <p className="text-muted-foreground">Manage your store staff and their roles</p>
         </div>
         <Button onClick={() => setIsAddStaffModalOpen(true)}>
           <UserPlus className="mr-2 h-4 w-4" />
@@ -145,7 +115,6 @@ export default function StaffManagementPage() {
         </Button>
       </div>
 
-      {/* Staff Stats */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -154,12 +123,8 @@ export default function StaffManagementPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{staffStats.total}</div>
-            <p className="text-xs text-muted-foreground">
-              Across all positions
-            </p>
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Staff</CardTitle>
@@ -167,213 +132,147 @@ export default function StaffManagementPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{staffStats.active}</div>
-            <p className="text-xs text-green-500">
-              67% availability
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">On Leave</CardTitle>
-            <Clock className="h-4 w-4 text-orange-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{staffStats.inactive}</div>
-            <p className="text-xs text-orange-500">
-              17% of staff
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Positions</CardTitle>
-            <Shield className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{staffStats.positions.length}</div>
-            <p className="text-xs text-muted-foreground">
-              Different roles
-            </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Search and Filters */}
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row items-center gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search staff by name, role, or email..." className="pl-8" />
+              <Input placeholder="Search staff by name or email..." className="pl-8" />
             </div>
             <Button variant="outline">
               <Filter className="mr-2 h-4 w-4" />
               Filter by Role
             </Button>
-            <Button variant="outline">
-              Schedule View
-            </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Staff Table */}
       <Card>
         <CardHeader>
           <CardTitle>Staff Members</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Staff Member</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Contact</TableHead>
-                <TableHead>Join Date</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {staff.map((staff) => (
-                <TableRow key={staff.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar>
-                        {/* <AvatarFallback>{staff.avatar}</AvatarFallback> */}
-                      </Avatar>
-                      <div>
-                        <div className="font-medium">{staff.fullName}</div>
-                        <div className="text-sm text-muted-foreground">ID: STF-{staff.id.toString().padStart(3, '0')}</div>
+          {staffMembers.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <UserPlus className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium">No staff members yet</h3>
+              <p className="text-sm text-muted-foreground mt-1 mb-4">
+                Add your first staff member to get started.
+              </p>
+              <Button onClick={() => setIsAddStaffModalOpen(true)}>
+                <UserPlus className="mr-2 h-4 w-4" />
+                Add Staff Member
+              </Button>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Staff Member</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Contact</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {staffMembers.map((staff: any) => (
+                  <TableRow key={staff.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar>
+                          <AvatarFallback>
+                            {(staff.fullName || "ST").split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="font-medium">{staff.fullName}</div>
+                        </div>
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={
-                      staff.role === "Manager" ? "default" :
-                        staff.role === "Assistant Manager" ? "secondary" : "outline"
-                    }>
-                      {staff.role}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="space-y-1">
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{staff.role}</Badge>
+                    </TableCell>
+                    <TableCell>
                       <div className="flex items-center text-sm">
                         <Mail className="mr-1 h-3 w-3" />
                         {staff.email}
                       </div>
-                      <div className="flex items-center text-sm text-muted-foreground">
-                        <Phone className="mr-1 h-3 w-3" />
-                        {staff.email}
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center">
-                      <Calendar className="mr-1 h-3 w-3" />
-                      {staff.createdAt}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={
-                      staff.isActive ? "default" :
-                        staff.isActive ? "secondary" : "outline"
-                    }>
-                      {staff.isActive ? "Active" : "Inactive"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleOpenModal('view', staff)}>
-                          <Eye className="mr-2 h-4 w-4" />
-                          View Profile
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleOpenModal('edit', staff)}>
-                          <Edit className="mr-2 h-4 w-4" />
-                          Edit Details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleOpenModal('schedule', staff)}>
-                          <CalendarDays className="mr-2 h-4 w-4" />
-                          View Schedule
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => handleOpenModal('delete', staff)}
-                          className="text-red-600"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Remove Staff
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={staff.isActive ? "default" : "secondary"}>
+                        {staff.isActive ? "Active" : "Inactive"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => setPasswordResetModal({ open: true, staff })}>
+                            <Key className="mr-2 h-4 w-4" />
+                            Reset Password
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
-      {/* Staff Roles Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Staff Roles & Permissions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {[
-              { role: "Manager", count: 1, permissions: ["Full access", "Staff management", "Financial reports"] },
-              { role: "Assistant Manager", count: 1, permissions: ["Sales management", "Inventory access", "Customer service"] },
-              { role: "Sales Associate", count: 2, permissions: ["Process sales", "Customer assistance", "Basic inventory"] },
-              { role: "Inventory Manager", count: 1, permissions: ["Stock management", "Order placement", "Supplier coordination"] },
-              { role: "Cashier", count: 1, permissions: ["Process payments", "Returns handling", "Basic reports"] },
-            ].map((role) => (
-              <Card key={role.role}>
-                <CardHeader>
-                  <CardTitle className="text-lg">{role.role}</CardTitle>
-                  <div className="text-sm text-muted-foreground">{role.count} member(s)</div>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2">
-                    {role.permissions.map((permission) => (
-                      <li key={permission} className="flex items-center text-sm">
-                        <Shield className="mr-2 h-3 w-3 text-green-600" />
-                        {permission}
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Action Modal */}
-      {actionModalState.staff && (
-        <StaffActionModal
-          isOpen={actionModalState.isOpen}
-          onClose={handleCloseModal}
-          mode={actionModalState.mode}
-          staff={actionModalState.staff}
-          onSave={handleSaveStaff}
-          onDelete={handleDeleteStaff}
-        />
-      )}
-
-      {/* Add Staff Modal - You need to create this component */}
       <AddStaffModal
         isOpen={isAddStaffModalOpen}
         onClose={() => setIsAddStaffModalOpen(false)}
         onAddStaff={handleAddStaff}
       />
+
+      <Dialog open={passwordResetModal.open} onOpenChange={(open) => !open && setPasswordResetModal({ open: false, staff: null })}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Key className="h-5 w-5" />
+              Reset Password
+            </DialogTitle>
+            <DialogDescription>
+              Set a new password for {passwordResetModal.staff?.fullName}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-password">New Password</Label>
+              <Input
+                id="new-password"
+                type="password"
+                placeholder="Enter new password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                The staff member can change this after logging in.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setPasswordResetModal({ open: false, staff: null }); setNewPassword("") }}>
+              Cancel
+            </Button>
+            <Button onClick={handleResetPassword} disabled={resetting || !newPassword}>
+              {resetting ? "Resetting..." : "Reset Password"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

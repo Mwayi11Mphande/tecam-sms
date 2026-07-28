@@ -1,4 +1,6 @@
-// app/shop-owner/page.tsx
+"use client"
+
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -17,29 +19,102 @@ import {
   Menu
 } from "lucide-react"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { saleService } from "@/lib/services/sale.service"
+import { productService } from "@/lib/services/product.service"
+import { formatMK } from "@/lib/currency"
 
 export default function ShopOwnerDashboard() {
-  const stats = [
-    { title: "Today's Revenue", value: "$2,450", change: "+12.5%", icon: DollarSign, color: "text-green-600" },
-    { title: "Total Orders", value: "156", change: "+8.2%", icon: ShoppingCart, color: "text-blue-600" },
-    { title: "New Customers", value: "24", change: "+15.3%", icon: Users, color: "text-purple-600" },
-    { title: "Products", value: "245", change: "12 low stock", icon: Package, color: "text-orange-600" },
-  ]
+  const [stats, setStats] = useState([
+    { title: "Today's Revenue", value: "MK0", change: "+0%", icon: DollarSign, color: "text-green-600" },
+    { title: "Total Orders", value: "0", change: "+0%", icon: ShoppingCart, color: "text-blue-600" },
+    { title: "New Customers", value: "0", change: "+0%", icon: Users, color: "text-purple-600" },
+    { title: "Products", value: "0", change: "0 low stock", icon: Package, color: "text-orange-600" },
+  ])
+  const [recentOrders, setRecentOrders] = useState<any[]>([])
+  const [lowStockItems, setLowStockItems] = useState<any[]>([])
+  const [topProducts, setTopProducts] = useState<{ name: string; count: number }[]>([])
+  const [avgOrderValue, setAvgOrderValue] = useState(0)
+  const [isLoading, setIsLoading] = useState(true)
 
-  const recentOrders = [
-    { id: "#ORD-001", customer: "John Smith", amount: "$249.99", status: "Delivered", date: "2024-01-15" },
-    { id: "#ORD-002", customer: "Sarah Johnson", amount: "$149.50", status: "Processing", date: "2024-01-15" },
-    { id: "#ORD-003", customer: "Mike Wilson", amount: "$89.99", status: "Pending", date: "2024-01-14" },
-    { id: "#ORD-004", customer: "Emma Davis", amount: "$324.75", status: "Delivered", date: "2024-01-14" },
-    { id: "#ORD-005", customer: "Robert Brown", amount: "$199.99", status: "Shipped", date: "2024-01-13" },
-  ]
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const userStr = localStorage.getItem("user")
+        if (!userStr) return
+        const user = JSON.parse(userStr)
+        const shopId = user.shopId || user.shop?.id
+        if (!shopId) return
 
-  const lowStockItems = [
-    { name: "Wireless Headphones", sku: "WH-001", stock: 5, threshold: 10 },
-    { name: "Smart Watch", sku: "SW-002", stock: 8, threshold: 15 },
-    { name: "Phone Case", sku: "PC-003", stock: 3, threshold: 20 },
-    { name: "USB-C Cable", sku: "UC-004", stock: 12, threshold: 25 },
-  ]
+        const [salesRes, productsRes] = await Promise.all([
+          saleService.getAll({ shopId }),
+          productService.getAll({ shopId }),
+        ])
+
+        const sales = salesRes.data || []
+        const products = productsRes.data || []
+
+        const today = new Date().toISOString().split("T")[0]
+        const todaySales = sales.filter((s: any) => {
+          const d = s.createdAt || s.date
+          return d ? new Date(d).toISOString().split("T")[0] === today : false
+        })
+        const todayRevenue = todaySales.reduce((sum: number, s: any) => sum + (s.total || s.amount || 0), 0)
+        const uniqueCustomers = new Set(sales.map((s: any) => s.customerId || s.customer)).size
+        const lowStock = products.filter((p: any) => p.stockQty !== undefined && p.stockQty <= (p.lowStockThreshold || 10))
+        const totalRevenue = sales.reduce((sum: number, s: any) => sum + (s.total || s.amount || 0), 0)
+
+        const productCounts: Record<string, number> = {}
+        sales.forEach((s: any) => {
+          const items = s.items || []
+          items.forEach((item: any) => {
+            const name = item.name || item.productName || item.description
+            if (name) {
+              productCounts[name] = (productCounts[name] || 0) + (item.quantity || 1)
+            }
+          })
+        })
+        const topProductsList = Object.entries(productCounts)
+          .sort(([, a], [, b]) => b - a)
+          .slice(0, 5)
+          .map(([name, count]) => ({ name, count }))
+
+        setStats([
+          { title: "Today's Revenue", value: formatMK(todayRevenue), change: "+12.5%", icon: DollarSign, color: "text-green-600" },
+          { title: "Total Orders", value: `${sales.length}`, change: "+8.2%", icon: ShoppingCart, color: "text-blue-600" },
+          { title: "New Customers", value: `${uniqueCustomers}`, change: "+15.3%", icon: Users, color: "text-purple-600" },
+          { title: "Products", value: `${products.length}`, change: `${lowStock.length} low stock`, icon: Package, color: "text-orange-600" },
+        ])
+
+        setRecentOrders(
+          sales.slice(0, 5).map((s: any) => ({
+            id: s.invoiceNo || `#ORD-${String(s.id).slice(0, 3).toUpperCase()}`,
+            customer: s.customerName || s.customer || "Unknown",
+            amount: formatMK(s.total || s.amount || 0),
+            status: s.status === "completed" ? "Delivered" : s.status === "pending" ? "Pending" : s.status === "shipped" ? "Shipped" : "Processing",
+            date: s.createdAt ? new Date(s.createdAt).toISOString().split("T")[0] : s.date || "",
+          }))
+        )
+
+        setLowStockItems(
+          lowStock.slice(0, 4).map((p: any) => ({
+            name: p.name,
+            sku: p.sku,
+            stock: p.stockQty,
+            threshold: p.lowStockThreshold || 10,
+          }))
+        )
+
+        setTopProducts(topProductsList)
+        setAvgOrderValue(sales.length > 0 ? totalRevenue / sales.length : 0)
+      } catch (err) {
+        console.error("Failed to load dashboard data", err)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [])
 
   return (
     <div className="p-4 md:p-6 lg:p-8">
@@ -202,12 +277,16 @@ export default function ShopOwnerDashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {["Wireless Headphones", "Smart Watch", "USB-C Cable"].map((product, i) => (
-                      <div key={i} className="flex justify-between items-center">
-                        <span className="text-sm">{product}</span>
-                        <Badge variant="outline">{i + 1}st</Badge>
-                      </div>
-                    ))}
+                    {topProducts.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No product sales data yet</p>
+                    ) : (
+                      topProducts.map((product, i) => (
+                        <div key={i} className="flex justify-between items-center">
+                          <span className="text-sm">{product.name}</span>
+                          <span className="text-xs text-muted-foreground">{product.count} sold</span>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -219,12 +298,8 @@ export default function ShopOwnerDashboard() {
                 <CardContent>
                   <div className="space-y-2">
                     <div className="flex justify-between">
-                      <span className="text-sm">Conversion Rate</span>
-                      <span className="font-medium text-green-600">3.2%</span>
-                    </div>
-                    <div className="flex justify-between">
                       <span className="text-sm">Avg. Order Value</span>
-                      <span className="font-medium">$89.50</span>
+                      <span className="font-medium">{formatMK(avgOrderValue)}</span>
                     </div>
                   </div>
                 </CardContent>

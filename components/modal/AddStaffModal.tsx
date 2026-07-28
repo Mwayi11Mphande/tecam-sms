@@ -23,22 +23,15 @@ import { UserPlus, Mail, Key, Phone, Calendar, X, User } from "lucide-react"
 interface AddStaffModalProps {
   isOpen: boolean
   onClose: () => void
-  onAddStaff: (staff: {
-    fullName: string
-    email: string
-    password: string
-  }) => void
+  onAddStaff: (data: { fullName: string; email: string; password: string }) => void
 }
 
 export function AddStaffModal({ isOpen, onClose, onAddStaff }: AddStaffModalProps) {
   const [newStaffData, setNewStaffData] = useState({
-    name: "",
+    fullName: "",
     email: "",
     password: "",
     role: "",
-    phone: "",
-    joinDate: new Date().toISOString().split('T')[0],
-    status: "Active"
   })
 
   const handleInputChange = (field: string, value: string) => {
@@ -49,22 +42,8 @@ export function AddStaffModal({ isOpen, onClose, onAddStaff }: AddStaffModalProp
   }
 
   const handleSubmit = () => {
-    onAddStaff({
-      fullName: newStaffData.name,
-      email: newStaffData.email,
-      password: newStaffData.password,
-    })
-
-    // Reset form
-    setNewStaffData({
-      name: "",
-      email: "",
-      password: "",
-      role: "",
-      phone: "",
-      joinDate: new Date().toISOString().split('T')[0],
-      status: "Active"
-    })
+    onAddStaff(newStaffData)
+    setNewStaffData({ fullName: "", email: "", password: "", role: "" })
   }
 
   return (
@@ -89,8 +68,8 @@ export function AddStaffModal({ isOpen, onClose, onAddStaff }: AddStaffModalProp
             <Input
               id="name"
               placeholder="Enter full name"
-              value={newStaffData.name}
-              onChange={(e) => handleInputChange("name", e.target.value)}
+              value={newStaffData.fullName}
+              onChange={(e) => handleInputChange("fullName", e.target.value)}
             />
           </div>
 
@@ -121,7 +100,7 @@ export function AddStaffModal({ isOpen, onClose, onAddStaff }: AddStaffModalProp
               onChange={(e) => handleInputChange("password", e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              Minimum 8 characters with letters and numbers
+              The staff member can change this after logging in.
             </p>
           </div>
 
@@ -135,39 +114,9 @@ export function AddStaffModal({ isOpen, onClose, onAddStaff }: AddStaffModalProp
                 <SelectValue placeholder="Select a role" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Manager">Manager</SelectItem>
-                <SelectItem value="Assistant Manager">Assistant Manager</SelectItem>
-                <SelectItem value="Sales Associate">Sales Associate</SelectItem>
-                <SelectItem value="Inventory Manager">Inventory Manager</SelectItem>
                 <SelectItem value="Cashier">Cashier</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="phone" className="flex items-center gap-2">
-              <Phone className="h-4 w-4" />
-              Phone Number (Optional)
-            </Label>
-            <Input
-              id="phone"
-              placeholder="+1 (555) 123-4567"
-              value={newStaffData.phone}
-              onChange={(e) => handleInputChange("phone", e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="joinDate" className="flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              Join Date
-            </Label>
-            <Input
-              id="joinDate"
-              type="date"
-              value={newStaffData.joinDate}
-              onChange={(e) => handleInputChange("joinDate", e.target.value)}
-            />
           </div>
         </div>
 
@@ -182,7 +131,7 @@ export function AddStaffModal({ isOpen, onClose, onAddStaff }: AddStaffModalProp
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={!newStaffData.name || !newStaffData.email || !newStaffData.password || !newStaffData.role}
+            disabled={!newStaffData.fullName || !newStaffData.email || !newStaffData.password || !newStaffData.role}
             className="flex items-center gap-2"
           >
             <UserPlus className="h-4 w-4" />

@@ -1,9 +1,8 @@
-// app/dev-dash/shops/create/page.tsx
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { 
+import {
   IconArrowLeft,
   IconBuildingStore,
   IconUser,
@@ -21,55 +20,93 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
 import Link from "next/link"
+import { shopService } from "@/lib/services/shop.service"
+import { userService } from "@/lib/services/user.service"
 
 export default function CreateShopPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
+  const [owners, setOwners] = useState<any[]>([])
+  const [loadingOwners, setLoadingOwners] = useState(true)
+  const [ownerMode, setOwnerMode] = useState<"select" | "create">("select")
   const [formData, setFormData] = useState({
     shopName: "",
+    ownerId: "",
+    phone: "",
+    email: "",
+    address: "",
+    plan: "",
     ownerName: "",
     ownerEmail: "",
-    ownerPhone: "",
-    address: "",
-    city: "",
-    country: "",
-    plan: "",
-    paymentMethod: "",
+    ownerPassword: "",
   })
+
+  useEffect(() => {
+    userService.getAll()
+      .then(res => {
+        const users = res.data || []
+        setOwners(users.filter((u: any) => u.role === "OWNER"))
+      })
+      .catch(console.error)
+      .finally(() => setLoadingOwners(false))
+  }, [])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
   }
 
-  const handleSelectChange = (name: string, value: string) => {
-    setFormData(prev => ({ ...prev, [name]: value }))
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    
+
     try {
-      // Validate required fields
-      if (!formData.shopName || !formData.ownerName || !formData.ownerEmail || !formData.plan) {
-        alert("Please fill in all required fields")
+      if (!formData.shopName) {
+        alert("Shop name is required")
         setIsLoading(false)
         return
       }
 
-      // API call to create shop
-      console.log("Creating shop with data:", formData)
+      if (ownerMode === "select" && !formData.ownerId) {
+        alert("Please select an owner")
+        setIsLoading(false)
+        return
+      }
+
+      const baseData = {
+        name: formData.shopName,
+        phone: formData.phone || undefined,
+        email: formData.email || undefined,
+        address: formData.address || undefined,
+        plan: formData.plan || undefined,
+      }
+
+      if (ownerMode === "create") {
+        if (!formData.ownerName || !formData.ownerEmail || !formData.ownerPassword) {
+          alert("Owner name, email, and password are required")
+          setIsLoading(false)
+          return
+        }
+        await shopService.create({
+          ...baseData,
+          ownerData: {
+            fullName: formData.ownerName,
+            email: formData.ownerEmail,
+            password: formData.ownerPassword,
+          },
+        })
+      } else {
+        await shopService.create({
+          ...baseData,
+          ownerId: formData.ownerId,
+        })
+      }
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      
-      // Redirect to shops list
       router.push("/dev-dash/shops")
-    } catch (error) {
-      console.error("Error creating shop:", error)
-      alert("Failed to create shop. Please try again.")
+    } catch (err: any) {
+      alert(err.message || "Failed to create shop")
     } finally {
       setIsLoading(false)
     }
@@ -91,22 +128,17 @@ export default function CreateShopPage() {
 
       <form onSubmit={handleSubmit}>
         <div className="space-y-6">
-          {/* Shop Information Card */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <IconBuildingStore className="h-5 w-5" />
                 Shop Information
               </CardTitle>
-              <CardDescription>
-                Enter the basic information about the shop
-              </CardDescription>
+              <CardDescription>Enter the basic information about the shop</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <label htmlFor="shopName" className="text-sm font-medium">
-                  Shop Name <span className="text-red-500">*</span>
-                </label>
+                <Label htmlFor="shopName">Shop Name <span className="text-red-500">*</span></Label>
                 <Input
                   id="shopName"
                   name="shopName"
@@ -118,9 +150,7 @@ export default function CreateShopPage() {
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="address" className="text-sm font-medium">
-                  Street Address
-                </label>
+                <Label htmlFor="address">Street Address</Label>
                 <Input
                   id="address"
                   name="address"
@@ -132,27 +162,23 @@ export default function CreateShopPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label htmlFor="city" className="text-sm font-medium">
-                    City
-                  </label>
+                  <Label htmlFor="email">Email</Label>
                   <Input
-                    id="city"
-                    name="city"
-                    placeholder="Enter city"
-                    value={formData.city}
+                    id="email"
+                    name="email"
+                    type="email"
+                    placeholder="shop@email.com"
+                    value={formData.email}
                     onChange={handleChange}
                   />
                 </div>
-
                 <div className="space-y-2">
-                  <label htmlFor="country" className="text-sm font-medium">
-                    Country
-                  </label>
+                  <Label htmlFor="phone">Phone</Label>
                   <Input
-                    id="country"
-                    name="country"
-                    placeholder="Enter country"
-                    value={formData.country}
+                    id="phone"
+                    name="phone"
+                    placeholder="+1 234 567 890"
+                    value={formData.phone}
                     onChange={handleChange}
                   />
                 </div>
@@ -160,120 +186,128 @@ export default function CreateShopPage() {
             </CardContent>
           </Card>
 
-          {/* Owner Information Card */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <IconUser className="h-5 w-5" />
-                Owner Information
+                Shop Owner
               </CardTitle>
-              <CardDescription>
-                Details of the shop owner
-              </CardDescription>
+              <CardDescription>Select an existing owner or create a new one</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <label htmlFor="ownerName" className="text-sm font-medium">
-                  Owner Name <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  id="ownerName"
-                  name="ownerName"
-                  placeholder="Enter owner's full name"
-                  value={formData.ownerName}
-                  onChange={handleChange}
-                  required
-                />
+              <div className="flex gap-4">
+                <Button
+                  type="button"
+                  variant={ownerMode === "select" ? "default" : "outline"}
+                  onClick={() => setOwnerMode("select")}
+                >
+                  Select Existing Owner
+                </Button>
+                <Button
+                  type="button"
+                  variant={ownerMode === "create" ? "default" : "outline"}
+                  onClick={() => setOwnerMode("create")}
+                >
+                  Create New Owner
+                </Button>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              {ownerMode === "select" ? (
                 <div className="space-y-2">
-                  <label htmlFor="ownerEmail" className="text-sm font-medium">
-                    Email Address <span className="text-red-500">*</span>
-                  </label>
-                  <Input
-                    id="ownerEmail"
-                    name="ownerEmail"
-                    type="email"
-                    placeholder="owner@email.com"
-                    value={formData.ownerEmail}
-                    onChange={handleChange}
-                    required
-                  />
+                  <Label htmlFor="ownerId">Owner <span className="text-red-500">*</span></Label>
+                  {loadingOwners ? (
+                    <div className="text-sm text-muted-foreground">Loading owners...</div>
+                  ) : (
+                    <Select
+                      value={formData.ownerId}
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, ownerId: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select an owner" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {owners.map((owner) => (
+                          <SelectItem key={owner.id} value={owner.id}>
+                            {owner.fullName} ({owner.email})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="ownerPhone" className="text-sm font-medium">
-                    Phone Number
-                  </label>
-                  <Input
-                    id="ownerPhone"
-                    name="ownerPhone"
-                    placeholder="+1 234 567 890"
-                    value={formData.ownerPhone}
-                    onChange={handleChange}
-                  />
+              ) : (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="ownerName">Full Name <span className="text-red-500">*</span></Label>
+                    <Input
+                      id="ownerName"
+                      name="ownerName"
+                      placeholder="Enter owner full name"
+                      value={formData.ownerName}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="ownerEmail">Email <span className="text-red-500">*</span></Label>
+                    <Input
+                      id="ownerEmail"
+                      name="ownerEmail"
+                      type="email"
+                      placeholder="owner@email.com"
+                      value={formData.ownerEmail}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="ownerPassword">Password <span className="text-red-500">*</span></Label>
+                    <Input
+                      id="ownerPassword"
+                      name="ownerPassword"
+                      type="password"
+                      placeholder="Set a temporary password"
+                      value={formData.ownerPassword}
+                      onChange={handleChange}
+                      required
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      The owner can change this password after logging in.
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
 
-          {/* Subscription & Payment Card */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <IconCreditCard className="h-5 w-5" />
-                Subscription & Payment
+                Subscription Plan
               </CardTitle>
-              <CardDescription>
-                Select subscription plan and payment method
-              </CardDescription>
+              <CardDescription>Select initial subscription plan</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <label htmlFor="plan" className="text-sm font-medium">
-                  Subscription Plan <span className="text-red-500">*</span>
-                </label>
-                <Select 
-                  onValueChange={(value) => handleSelectChange("plan", value)}
+                <Label htmlFor="plan">Plan</Label>
+                <Select
                   value={formData.plan}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, plan: value }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select a plan" />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="basic">Basic - $99/month</SelectItem>
-                    <SelectItem value="professional">Professional - $149/month</SelectItem>
-                    <SelectItem value="premium">Premium - $299/month</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-sm text-muted-foreground">
-                  The plan determines features and limitations
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="paymentMethod" className="text-sm font-medium">
-                  Payment Method
-                </label>
-                <Select 
-                  onValueChange={(value) => handleSelectChange("paymentMethod", value)}
-                  value={formData.paymentMethod}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select payment method" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="credit">Credit Card</SelectItem>
-                    <SelectItem value="bank">Bank Transfer</SelectItem>
-                    <SelectItem value="paypal">PayPal</SelectItem>
+                    <SelectContent>
+                    <SelectItem value="BASIC">Basic - $99/month</SelectItem>
+                    <SelectItem value="PRO">Professional - $149/month</SelectItem>
+                    <SelectItem value="ENTERPRISE">Premium - $299/month</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </CardContent>
           </Card>
 
-          {/* Form Actions */}
           <div className="flex justify-end gap-4">
             <Button type="button" variant="outline" asChild>
               <Link href="/dev-dash/shops">Cancel</Link>

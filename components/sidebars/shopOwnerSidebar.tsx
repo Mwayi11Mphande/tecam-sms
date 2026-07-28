@@ -20,12 +20,15 @@ import {
   IconCalendar,
   IconMoneybag,
   IconListDetails,
+  IconScissors,
+  IconLock,
 } from "@tabler/icons-react"
 
 import { NavDocuments } from "@/components/nav-documents"
 import { NavMain } from "@/components/nav-main"
 import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
+import { Separator } from "@/components/ui/separator"
 import {
   Sidebar,
   SidebarContent,
@@ -42,7 +45,7 @@ const data = {
     email: "owner@store.com",
     avatar: "/avatars/owner.jpg",
   },
-  navMain: [
+  shopNav: [
     {
       title: "Dashboard",
       url: "/shop-owner",
@@ -68,15 +71,39 @@ const data = {
       url: "/shop-owner/shop-reports",
       icon: IconTrendingUp,
     },
+  ],
+  serviceNav: [
     {
-      title: "Service Management",
-      url: "/shop-owner/view-service",
+      title: "Manage Services",
+      url: "/shop-owner/services",
       icon: IconListDetails,
     },
+    {
+      title: "Service Analytics",
+      url: "/shop-owner/view-service",
+      icon: IconReport,
+    },
+    {
+      title: "Service Sales",
+      url: "/shop-owner/service-sales",
+      icon: IconScissors,
+    },
+  ],
+  otherNav: [
      {
       title: "Staff Management",
       url: "/shop-owner/staff-manage",
       icon: IconUsers,
+    },
+    {
+      title: "Expenses",
+      url: "/shop-owner/expenses",
+      icon: IconCash,
+    },
+    {
+      title: "Daily Reports",
+      url: "/shop-owner/close-register",
+      icon: IconLock,
     },
     {
       title: "Store Settings",
@@ -84,7 +111,6 @@ const data = {
       url: "/shop-owner/settings",
     },
   ],
-  
 }
 
 export function ShopOwnerSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -106,7 +132,11 @@ export function ShopOwnerSidebar({ ...props }: React.ComponentProps<typeof Sideb
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
+        <NavMain items={data.shopNav} hideHeader />
+        <Separator className="my-2" />
+        <NavMain items={data.serviceNav} hideHeader />
+        <Separator className="my-2" />
+        <NavMain items={data.otherNav} hideHeader />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={data.user} />

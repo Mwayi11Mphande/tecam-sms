@@ -16,14 +16,22 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { formatMK } from "@/lib/currency"
 
-const products = [
-  { id: 1, name: "Wireless Headphones", sku: "WH-001", price: "$99.99", stock: 45, status: "In Stock" },
-  { id: 2, name: "Smart Watch", sku: "SW-002", price: "$199.99", stock: 12, status: "Low Stock" },
-  { id: 3, name: "Laptop Backpack", sku: "LB-003", price: "$49.99", stock: 0, status: "Out of Stock" },
-]
+interface Product {
+  id: number
+  name: string
+  sku: string
+  price: string
+  stock: number
+  status: string
+}
 
-export function ProductsTable() {
+interface ProductsTableProps {
+  products?: Product[]
+}
+
+export function ProductsTable({ products = [] }: ProductsTableProps) {
   return (
     <div className="rounded-md border">
       <Table>
@@ -42,7 +50,7 @@ export function ProductsTable() {
             <TableRow key={product.id}>
               <TableCell className="font-medium">{product.name}</TableCell>
               <TableCell>{product.sku}</TableCell>
-              <TableCell>{product.price}</TableCell>
+              <TableCell>{formatMK(product.price)}</TableCell>
               <TableCell>{product.stock}</TableCell>
               <TableCell>
                 <Badge variant={

@@ -3,10 +3,18 @@
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
-import { ChevronRight, Home, ShoppingCart, Bell, User } from "lucide-react"
+import { ChevronRight, Home, ShoppingCart, Bell, User, LogOut, Settings } from "lucide-react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { ThemeToggle } from "./themes/themes-toggle"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 export function SiteHeader() {
   const pathname = usePathname()
@@ -143,14 +151,47 @@ export function SiteHeader() {
           <ThemeToggle />
 
           {/* User Profile */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9 rounded-lg hover:bg-accent"
-          >
-            <User className="h-4 w-4" />
-            <span className="sr-only">User profile</span>
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-lg hover:bg-accent"
+              >
+                <User className="h-4 w-4" />
+                <span className="sr-only">User profile</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuLabel>
+                {(() => {
+                  try {
+                    const u = JSON.parse(localStorage.getItem("user") || "{}")
+                    return u.fullName || u.email || "Account"
+                  } catch { return "Account" }
+                })()}
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/profile" className="cursor-pointer">
+                  <Settings className="h-4 w-4 mr-2" />
+                  My Account
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-red-600 cursor-pointer"
+                onClick={() => {
+                  localStorage.removeItem("token")
+                  localStorage.removeItem("user")
+                  localStorage.removeItem("shopId")
+                  window.location.href = "/login"
+                }}
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Logout
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </header>

@@ -1,7 +1,7 @@
 // app/dev-dash/shops/page.tsx
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { 
   IconBuildingStore, 
@@ -92,106 +92,9 @@ import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
-
-// Mock data - replace with actual API calls
-const shops = [
-  {
-    id: "1",
-    name: "Tech Haven",
-    owner: "John Doe",
-    email: "john@techhaven.com",
-    phone: "+1 234-567-8901",
-    status: "active",
-    plan: "Premium",
-    joinedDate: "2024-01-15",
-    revenue: 12450,
-    staff: 5,
-    address: "123 Tech Street, Silicon Valley, CA 94025",
-    description: "Electronics and gadgets store",
-    lastPayment: "2024-02-01",
-    nextBilling: "2024-03-01",
-    paymentMethod: "Visa **** 4242",
-    totalOrders: 1250,
-    avgOrderValue: 99.50,
-  },
-  {
-    id: "2",
-    name: "Fashion Hub",
-    owner: "Jane Smith",
-    email: "jane@fashionhub.com",
-    phone: "+1 234-567-8902",
-    status: "active",
-    plan: "Professional",
-    joinedDate: "2024-01-10",
-    revenue: 8450,
-    staff: 3,
-    address: "456 Fashion Ave, New York, NY 10018",
-    description: "Clothing and accessories boutique",
-    lastPayment: "2024-02-01",
-    nextBilling: "2024-03-01",
-    paymentMethod: "PayPal",
-    totalOrders: 890,
-    avgOrderValue: 95.00,
-  },
-  {
-    id: "3",
-    name: "Grocery Mart",
-    owner: "Bob Johnson",
-    email: "bob@grocerymart.com",
-    phone: "+1 234-567-8903",
-    status: "pending",
-    plan: "Basic",
-    joinedDate: "2024-01-18",
-    revenue: 0,
-    staff: 2,
-    address: "789 Market St, Chicago, IL 60607",
-    description: "Local grocery and fresh produce",
-    lastPayment: null,
-    nextBilling: null,
-    paymentMethod: "Bank Transfer",
-    totalOrders: 0,
-    avgOrderValue: 0,
-  },
-  {
-    id: "4",
-    name: "Bookstore Plus",
-    owner: "Alice Brown",
-    email: "alice@bookstore.com",
-    phone: "+1 234-567-8904",
-    status: "suspended",
-    plan: "Professional",
-    joinedDate: "2023-12-05",
-    revenue: 5600,
-    staff: 4,
-    address: "321 Reader's Lane, Boston, MA 02108",
-    description: "Independent bookstore and café",
-    lastPayment: "2024-01-15",
-    nextBilling: "2024-02-15",
-    paymentMethod: "Visa **** 1234",
-    totalOrders: 450,
-    avgOrderValue: 45.00,
-    suspensionReason: "Payment failed for 2 consecutive months",
-  },
-  {
-    id: "5",
-    name: "Electronics World",
-    owner: "Charlie Wilson",
-    email: "charlie@electronics.com",
-    phone: "+1 234-567-8905",
-    status: "active",
-    plan: "Premium",
-    joinedDate: "2024-01-03",
-    revenue: 18900,
-    staff: 8,
-    address: "555 Digital Drive, Austin, TX 78701",
-    description: "Consumer electronics and repairs",
-    lastPayment: "2024-02-01",
-    nextBilling: "2024-03-01",
-    paymentMethod: "Amex **** 9876",
-    totalOrders: 2100,
-    avgOrderValue: 150.00,
-  },
-]
+import { shopService } from "@/lib/services/shop.service"
+import { formatMK } from "@/lib/currency"
+import { paymentService } from "@/lib/services/payment.service"
 
 // Types
 interface Shop {
@@ -217,6 +120,8 @@ interface Shop {
 
 export default function ShopsPage() {
   const router = useRouter()
+  const [shops, setShops] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [filterStatus, setFilterStatus] = useState("all")
   const [selectedShop, setSelectedShop] = useState<Shop | null>(null)
@@ -250,10 +155,40 @@ export default function ShopsPage() {
   const [selectedPlan, setSelectedPlan] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
 
+  useEffect(() => {
+    shopService.getAll()
+      .then(res => {
+        const raw = res.data || []
+        setShops(raw.map((s: any) => ({
+          id: s.id,
+          name: s.name,
+          owner: s.owner?.fullName || "N/A",
+          ownerObj: s.owner,
+          email: s.email || s.owner?.email || "",
+          phone: s.phone || "",
+          address: s.address || "",
+          description: "",
+          status: (s.subscriptionStatus || "trial").toLowerCase(),
+          plan: s.subscriptionPlan || "Trial",
+          joinedDate: s.createdAt,
+          revenue: 0,
+          staff: s.users?.length || 0,
+          lastPayment: null,
+          nextBilling: s.subscriptionExpiry || null,
+          paymentMethod: "Card",
+          totalOrders: 0,
+          avgOrderValue: 0,
+          suspensionReason: undefined,
+        })))
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false))
+  }, [])
+
   const filteredShops = shops.filter(shop => {
     const matchesSearch = shop.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         shop.owner.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         shop.email.toLowerCase().includes(searchTerm.toLowerCase())
+                         (shop.owner || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (shop.email || "").toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = filterStatus === "all" || shop.status === filterStatus
     return matchesSearch && matchesStatus
   })
@@ -262,10 +197,12 @@ export default function ShopsPage() {
     switch(status) {
       case "active":
         return <Badge className="bg-green-500">Active</Badge>
-      case "pending":
-        return <Badge className="bg-yellow-500">Pending</Badge>
+      case "trial":
+        return <Badge className="bg-blue-500">Trial</Badge>
       case "suspended":
         return <Badge variant="destructive">Suspended</Badge>
+      case "cancelled":
+        return <Badge variant="destructive">Cancelled</Badge>
       default:
         return <Badge variant="outline">{status}</Badge>
     }
@@ -332,30 +269,41 @@ export default function ShopsPage() {
 
   const handleSaveEdit = async () => {
     setIsProcessing(true)
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    console.log("Updating shop:", selectedShop?.id, editFormData)
-    setIsProcessing(false)
-    setEditDialogOpen(false)
-    // Show success toast/message
+    try {
+      await shopService.update(selectedShop!.id, editFormData)
+      setShops(prev => prev.map(s => s.id === selectedShop!.id ? { ...s, ...editFormData } : s))
+      setEditDialogOpen(false)
+    } catch (err: any) {
+      alert(err.message)
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
   const handleConfirmDelete = async () => {
     setIsProcessing(true)
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    console.log("Deleting shop:", selectedShop?.id)
-    setIsProcessing(false)
-    setDeleteDialogOpen(false)
+    try {
+      await shopService.delete(selectedShop!.id)
+      setShops(prev => prev.filter(s => s.id !== selectedShop!.id))
+      setDeleteDialogOpen(false)
+    } catch (err: any) {
+      alert(err.message)
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
   const handleConfirmApprove = async () => {
     setIsProcessing(true)
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    console.log("Approving shop:", selectedShop?.id)
-    setIsProcessing(false)
-    setApproveDialogOpen(false)
+    try {
+      await shopService.approve(selectedShop!.id)
+      setShops(prev => prev.map(s => s.id === selectedShop!.id ? { ...s, status: "active" } : s))
+      setApproveDialogOpen(false)
+    } catch (err: any) {
+      alert(err.message)
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
   const handleConfirmReject = async () => {
@@ -364,11 +312,15 @@ export default function ShopsPage() {
       return
     }
     setIsProcessing(true)
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    console.log("Rejecting shop:", selectedShop?.id, "Reason:", rejectionReason)
-    setIsProcessing(false)
-    setRejectDialogOpen(false)
+    try {
+      await shopService.delete(selectedShop!.id)
+      setShops(prev => prev.filter(s => s.id !== selectedShop!.id))
+      setRejectDialogOpen(false)
+    } catch (err: any) {
+      alert(err.message)
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
   const handleConfirmSuspend = async () => {
@@ -377,20 +329,28 @@ export default function ShopsPage() {
       return
     }
     setIsProcessing(true)
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    console.log("Suspending shop:", selectedShop?.id, "Reason:", suspensionReason)
-    setIsProcessing(false)
-    setSuspendDialogOpen(false)
+    try {
+      await shopService.suspend(selectedShop!.id, suspensionReason)
+      setShops(prev => prev.map(s => s.id === selectedShop!.id ? { ...s, status: "suspended" } : s))
+      setSuspendDialogOpen(false)
+    } catch (err: any) {
+      alert(err.message)
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
   const handleUpdateSubscription = async () => {
     setIsProcessing(true)
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    console.log("Updating subscription for:", selectedShop?.id, "New plan:", selectedPlan)
-    setIsProcessing(false)
-    setSubscriptionDialogOpen(false)
+    try {
+      await shopService.updateSubscription(selectedShop!.id, { plan: selectedPlan })
+      setShops(prev => prev.map(s => s.id === selectedShop!.id ? { ...s, plan: selectedPlan } : s))
+      setSubscriptionDialogOpen(false)
+    } catch (err: any) {
+      alert(err.message)
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
   const handleRecordPaymentSubmit = async () => {
@@ -399,15 +359,18 @@ export default function ShopsPage() {
       return
     }
     setIsProcessing(true)
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    console.log("Recording payment:", {
-      shopId: selectedShop?.id,
-      amount: paymentAmount,
-      method: paymentMethod
-    })
-    setIsProcessing(false)
-    setPaymentDialogOpen(false)
+    try {
+      await paymentService.record({
+        shopId: selectedShop!.id,
+        amount: Number(paymentAmount),
+        method: paymentMethod,
+      })
+      setPaymentDialogOpen(false)
+    } catch (err: any) {
+      alert(err.message)
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
   return (
@@ -436,7 +399,7 @@ export default function ShopsPage() {
             <CardHeader>
               <CardTitle>All Shops</CardTitle>
               <CardDescription>
-                Total {shops.length} shops registered on the platform
+                {loading ? "Loading..." : `Total ${shops.length} shops registered on the platform`}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -510,7 +473,7 @@ export default function ShopsPage() {
                         <TableCell>{getStatusBadge(shop.status)}</TableCell>
                         <TableCell>{shop.plan}</TableCell>
                         <TableCell>{new Date(shop.joinedDate).toLocaleDateString()}</TableCell>
-                        <TableCell>${shop.revenue.toLocaleString()}</TableCell>
+                        <TableCell>{formatMK(shop.revenue)}</TableCell>
                         <TableCell>{shop.staff}</TableCell>
                         <TableCell className="text-right">
                           <DropdownMenu>
@@ -672,7 +635,7 @@ export default function ShopsPage() {
                     </div>
                     <div className="bg-muted/50 p-2 rounded-lg text-center">
                       <p className="text-xs text-muted-foreground">Avg Order</p>
-                      <p className="font-bold">${selectedShop.avgOrderValue}</p>
+                      <p className="font-bold">{formatMK(selectedShop.avgOrderValue)}</p>
                     </div>
                     <div className="bg-muted/50 p-2 rounded-lg text-center">
                       <p className="text-xs text-muted-foreground">Staff</p>
@@ -818,21 +781,21 @@ export default function ShopsPage() {
                     <RadioGroupItem value="Basic" id="basic" />
                     <Label htmlFor="basic" className="flex-1">
                       <div className="font-medium">Basic</div>
-                      <p className="text-sm text-muted-foreground">$99/month - Up to 3 staff</p>
+                      <p className="text-sm text-muted-foreground">MK99/month - Up to 3 staff</p>
                     </Label>
                   </div>
                   <div className="flex items-center space-x-2 border p-3 rounded-lg">
                     <RadioGroupItem value="Professional" id="professional" />
                     <Label htmlFor="professional" className="flex-1">
                       <div className="font-medium">Professional</div>
-                      <p className="text-sm text-muted-foreground">$149/month - Up to 10 staff</p>
+                      <p className="text-sm text-muted-foreground">MK149/month - Up to 10 staff</p>
                     </Label>
                   </div>
                   <div className="flex items-center space-x-2 border p-3 rounded-lg">
                     <RadioGroupItem value="Premium" id="premium" />
                     <Label htmlFor="premium" className="flex-1">
                       <div className="font-medium">Premium</div>
-                      <p className="text-sm text-muted-foreground">$299/month - Unlimited staff</p>
+                      <p className="text-sm text-muted-foreground">MK299/month - Unlimited staff</p>
                     </Label>
                   </div>
                 </RadioGroup>
@@ -872,7 +835,7 @@ export default function ShopsPage() {
           {selectedShop && (
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="amount">Payment Amount ($)</Label>
+                <Label htmlFor="amount">Payment Amount (MK)</Label>
                 <Input
                   id="amount"
                   type="number"
@@ -937,7 +900,7 @@ export default function ShopsPage() {
                     <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-2xl font-bold">${selectedShop.revenue.toLocaleString()}</p>
+                    <p className="text-2xl font-bold">{formatMK(selectedShop.revenue)}</p>
                     <p className="text-xs text-muted-foreground">Lifetime</p>
                   </CardContent>
                 </Card>
@@ -960,7 +923,7 @@ export default function ShopsPage() {
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span>Average Order Value</span>
-                      <span className="font-medium">${selectedShop.avgOrderValue}</span>
+                      <span className="font-medium">{formatMK(selectedShop.avgOrderValue)}</span>
                     </div>
                     <Progress value={75} />
                   </div>

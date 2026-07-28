@@ -1,28 +1,99 @@
-// app/shop-owner/shop-items/page.tsx
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, Filter, Plus, Edit, Trash2, Eye, Package, MoreVertical, X } from "lucide-react"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
+  Search,
+  Filter,
+  Plus,
+  Edit,
+  Trash2,
+  Eye,
+  Package,
+  MoreVertical,
+  X,
+  Loader2,
+  AlertCircle
+} from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { AddProductModal, ProductSubmitData } from "@/components/modal/addProductModal"
-import { ProductActionModal } from "@/components/modal/ProductActionModal"
-import { useProductsStore } from "@/stores/products/productsStore"
-import { Product } from "@/lib/api/types"
+import { Product, ProductActionModal } from "@/components/modal/ProductActionModal"
+import { productService } from "@/lib/services/product.service"
+import { formatMK } from "@/lib/currency"
+
+function computeStatus(stock: number): string {
+  if (stock === 0) return "Out of Stock"
+  if (stock < 10) return "Low Stock"
+  return "In Stock"
+}
+
+function mapApiProduct(item: any): Product {
+  return {
+    id: item.id,
+    name: item.name,
+    sku: item.sku,
+    category: item.category?.name || item.category || "",
+    price: String(item.price ?? 0),
+    cost: String(item.cost ?? 0),
+    stock: item.stockQty ?? 0,
+    status: item.status || computeStatus(item.stockQty ?? 0),
+    description: item.description,
+    isActive: item.isActive ?? true,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+  }
+}
 
 export default function ShopItemsPage() {
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const { products, categories, addProduct, fetchProducts, fetchCategories, loading } = useProductsStore()
+  const fetchProducts = useCallback(async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const res = await productService.getAll()
+      const data = Array.isArray(res) ? res : ((res as any).data || [])
+      if (Array.isArray(data)) {
+        setProducts(data.map(mapApiProduct))
+      } else {
+        setError("Failed to load products")
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An unexpected error occurred")
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
     fetchProducts()
-    fetchCategories()
-  }, [fetchProducts, fetchCategories])
+  }, [fetchProducts])
 
   const [isAddProductModalOpen, setIsAddProductModalOpen] = useState(false)
   const [actionModalState, setActionModalState] = useState<{
@@ -35,56 +106,48 @@ export default function ShopItemsPage() {
     product: null
   })
 
-  // Search and filter states
   const [searchQuery, setSearchQuery] = useState("")
   const [categoryFilter, setCategoryFilter] = useState<string>("all")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [stockFilter, setStockFilter] = useState<string>("all")
 
-  // Get unique categories for filter dropdown
-  // const categories = useMemo(() => {
-  //   const uniqueCategories = Array.from(new Set(products.map(p => p.categoryId)))
-  //   return ["all", ...uniqueCategories]
-  // }, [products])
+  const categories = useMemo(() => {
+    const uniqueCategories = Array.from(new Set(products.map(p => p.category).filter(Boolean)))
+    return ["all", ...uniqueCategories]
+  }, [products])
 
-  // Get unique statuses for filter dropdown
   const statuses = useMemo(() => {
-    const uniqueStatuses = Array.from(new Set(products.map(p => p.status)))
+    const uniqueStatuses = Array.from(new Set(products.map(p => p.status).filter(Boolean)))
     return ["all", ...uniqueStatuses]
   }, [products])
 
-  // Filter products based on search and filters
   const filteredProducts = useMemo(() => {
     return products.filter(product => {
-      // Search query filter
-      const matchesSearch = searchQuery === "" ||
+      const matchesSearch = searchQuery === "" || 
         product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         product.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.categoryId.toLowerCase().includes(searchQuery.toLowerCase())
+        product.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        product.category.toLowerCase().includes(searchQuery.toLowerCase())
 
-      // Category filter
-      const matchesCategory = categoryFilter === "all" ||
-        product.categoryId === categoryFilter
+      const matchesCategory = categoryFilter === "all" || 
+        product.category === categoryFilter
 
-      // Status filter
-      const matchesStatus = statusFilter === "all" ||
+      const matchesStatus = statusFilter === "all" || 
         product.status === statusFilter
 
-      // Stock filter
       let matchesStock = true
       if (stockFilter === "inStock") {
-        matchesStock = product.stockQty > 0 && product.status === "ACTIVE"
+        matchesStock = product.stock > 0 && product.status === "In Stock"
       } else if (stockFilter === "lowStock") {
-        matchesStock = product.stockQty > 0 && product.stockQty < 20
+        matchesStock = product.stock > 0 && product.stock < 20
       } else if (stockFilter === "outOfStock") {
-        matchesStock = product.stockQty === 0
+        matchesStock = product.stock === 0
       }
 
       return matchesSearch && matchesCategory && matchesStatus && matchesStock
     })
   }, [products, searchQuery, categoryFilter, statusFilter, stockFilter])
 
-  // Clear all filters
   const clearFilters = () => {
     setSearchQuery("")
     setCategoryFilter("all")
@@ -92,27 +155,30 @@ export default function ShopItemsPage() {
     setStockFilter("all")
   }
 
-  // Check if any filter is active
-  const isFilterActive = searchQuery !== "" ||
-    categoryFilter !== "all" ||
-    statusFilter !== "all" ||
+  const isFilterActive = searchQuery !== "" || 
+    categoryFilter !== "all" || 
+    statusFilter !== "all" || 
     stockFilter !== "all"
 
   const handleAddProduct = async (productData: ProductSubmitData) => {
     try {
-      await addProduct({
+      setSaving(true)
+      const shopId = localStorage.getItem("shopId") || ""
+      await productService.create({
         name: productData.name,
         sku: productData.sku,
-        price: Number(productData.price),
-        cost: Number(productData.cost),
+        price: parseFloat(productData.price),
+        cost: parseFloat(productData.cost),
         stockQty: productData.stock,
-        categoryId: productData.category,
+        category: productData.category || undefined,
+        shopId,
       })
-
       setIsAddProductModalOpen(false)
-
-    } catch (error) {
-      console.error("Failed to add product", error)
+      await fetchProducts()
+    } catch (err: any) {
+      alert(err.message || "Failed to add product")
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -132,31 +198,77 @@ export default function ShopItemsPage() {
     })
   }
 
-  const handleSaveProduct = (updatedProduct: Product) => {
-    // setProducts(prev =>
-    //   prev.map(product =>
-    //     product.id === updatedProduct.id ? updatedProduct : product
-    //   )
-    // )
-    handleCloseModal()
-    alert("Product updated successfully!")
+  const handleSaveProduct = async (updatedProduct: Product) => {
+    try {
+      setSaving(true)
+      await productService.update(String(updatedProduct.id), {
+        name: updatedProduct.name,
+        sku: updatedProduct.sku,
+        price: parseFloat(updatedProduct.price),
+        cost: parseFloat(updatedProduct.cost),
+        stockQty: updatedProduct.stock,
+        category: updatedProduct.category || undefined,
+      })
+      handleCloseModal()
+      await fetchProducts()
+    } catch (err: any) {
+      alert(err.message || "Failed to update product")
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const handleDeleteProduct = (productId: number) => {
-    // setProducts(prev => prev.filter(product => product.id !== productId))
-    handleCloseModal()
-    alert("Product deleted successfully!")
+  const handleDeleteProduct = async (productId: string | number) => {
+    try {
+      setSaving(true)
+      await productService.delete(String(productId))
+      handleCloseModal()
+      await fetchProducts()
+    } catch (err: any) {
+      alert(err.message || "Failed to delete product")
+    } finally {
+      setSaving(false)
+    }
   }
 
-  // Calculate statistics based on filtered products
   const stats = useMemo(() => {
     const total = filteredProducts.length
-    const inStock = filteredProducts.filter(p => p.status === "ACTIVE").length
-    const lowStock = filteredProducts.filter(p => p.status === "INACTIVE").length
-    const outOfStock = 0
-
+    const inStock = filteredProducts.filter(p => p.status === "In Stock").length
+    const lowStock = filteredProducts.filter(p => p.status === "Low Stock").length
+    const outOfStock = filteredProducts.filter(p => p.status === "Out of Stock").length
+    
     return { total, inStock, lowStock, outOfStock }
   }, [filteredProducts])
+
+  if (loading) {
+    return (
+      <div className="p-4 md:p-6 lg:p-8 space-y-6">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
+            <p className="text-muted-foreground">Loading products...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 md:p-6 lg:p-8 space-y-6">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-500" />
+            <h3 className="text-lg font-medium mb-2">Failed to load products</h3>
+            <p className="text-muted-foreground mb-4">{error}</p>
+            <Button variant="outline" onClick={() => window.location.reload()}>
+              Try Again
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6">
@@ -173,7 +285,6 @@ export default function ShopItemsPage() {
         </Button>
       </div>
 
-      {/* Quick Stats */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -228,11 +339,9 @@ export default function ShopItemsPage() {
         </Card>
       </div>
 
-      {/* Search and Filters */}
       <Card>
         <CardContent className="pt-6">
           <div className="space-y-4">
-            {/* Search Bar */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -251,10 +360,8 @@ export default function ShopItemsPage() {
               )}
             </div>
 
-            {/* Filter Controls */}
             <div className="flex flex-col md:flex-row items-start md:items-center gap-3">
               <div className="flex flex-wrap gap-3 flex-1">
-                {/* Category Filter */}
                 <div className="min-w-[150px]">
                   <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                     <SelectTrigger>
@@ -265,15 +372,14 @@ export default function ShopItemsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       {categories.map((category) => (
-                        <SelectItem key={category.id} value={category.id}>
-                          {category.name}
+                        <SelectItem key={category} value={category}>
+                          {category === "all" ? "All Categories" : category}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
 
-                {/* Status Filter */}
                 <div className="min-w-[150px]">
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
                     <SelectTrigger>
@@ -289,7 +395,6 @@ export default function ShopItemsPage() {
                   </Select>
                 </div>
 
-                {/* Stock Level Filter */}
                 <div className="min-w-[150px]">
                   <Select value={stockFilter} onValueChange={setStockFilter}>
                     <SelectTrigger>
@@ -305,7 +410,6 @@ export default function ShopItemsPage() {
                 </div>
               </div>
 
-              {/* Action Buttons */}
               <div className="flex gap-2">
                 {isFilterActive && (
                   <Button
@@ -324,7 +428,6 @@ export default function ShopItemsPage() {
               </div>
             </div>
 
-            {/* Active Filters Display */}
             {isFilterActive && (
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-muted-foreground">Active filters:</span>
@@ -357,8 +460,8 @@ export default function ShopItemsPage() {
                     <Badge variant="secondary" className="gap-1">
                       Stock: {
                         stockFilter === "inStock" ? "In Stock" :
-                          stockFilter === "lowStock" ? "Low Stock" :
-                            "Out of Stock"
+                        stockFilter === "lowStock" ? "Low Stock" :
+                        "Out of Stock"
                       }
                       <button onClick={() => setStockFilter("all")} className="ml-1">
                         <X className="h-3 w-3" />
@@ -369,7 +472,6 @@ export default function ShopItemsPage() {
               </div>
             )}
 
-            {/* Results Count */}
             <div className="text-sm text-muted-foreground">
               Showing {filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''}
               {filteredProducts.length !== products.length && (
@@ -380,7 +482,6 @@ export default function ShopItemsPage() {
         </CardContent>
       </Card>
 
-      {/* Products Table */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>All Products</CardTitle>
@@ -394,7 +495,7 @@ export default function ShopItemsPage() {
               <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium mb-2">No products found</h3>
               <p className="text-muted-foreground mb-4">
-                {isFilterActive
+                {isFilterActive 
                   ? "Try adjusting your filters or search query"
                   : "No products available. Add your first product!"}
               </p>
@@ -436,25 +537,25 @@ export default function ShopItemsPage() {
                         </code>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline">{product.categoryId}</Badge>
+                        <Badge variant="outline">{product.category}</Badge>
                       </TableCell>
-                      <TableCell className="font-medium">{product.price}</TableCell>
-                      <TableCell className="text-muted-foreground">{product.cost}</TableCell>
+                      <TableCell className="font-medium">{formatMK(product.price)}</TableCell>
+                      <TableCell className="text-muted-foreground">{formatMK(product.cost)}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <span>{product.stockQty}</span>
-                          {product.stockQty < 10 && product.stockQty > 0 && (
+                          <span>{product.stock}</span>
+                          {product.stock < 10 && product.stock > 0 && (
                             <span className="h-2 w-2 rounded-full bg-orange-500 animate-pulse" />
                           )}
-                          {product.stockQty === 0 && (
+                          {product.stock === 0 && (
                             <span className="h-2 w-2 rounded-full bg-red-500" />
                           )}
                         </div>
                       </TableCell>
                       <TableCell>
                         <Badge variant={
-                          product.status === "ACTIVE" ? "default" :
-                            product.status === "INACTIVE" ? "secondary" : "destructive"
+                          product.status === "In Stock" ? "default" :
+                          product.status === "Low Stock" ? "secondary" : "destructive"
                         }>
                           {product.status}
                         </Badge>
@@ -475,7 +576,7 @@ export default function ShopItemsPage() {
                               <Edit className="mr-2 h-4 w-4" />
                               Edit Product
                             </DropdownMenuItem>
-                            <DropdownMenuItem
+                            <DropdownMenuItem 
                               onClick={() => handleOpenModal('delete', product)}
                               className="text-red-600"
                             >
@@ -494,15 +595,12 @@ export default function ShopItemsPage() {
         </CardContent>
       </Card>
 
-      {/* Add Product Modal */}
       <AddProductModal
         isOpen={isAddProductModalOpen}
-        categories={categories}
         onClose={() => setIsAddProductModalOpen(false)}
         onAddProduct={handleAddProduct}
       />
 
-      {/* Product Action Modal */}
       {actionModalState.product && (
         <ProductActionModal
           isOpen={actionModalState.isOpen}

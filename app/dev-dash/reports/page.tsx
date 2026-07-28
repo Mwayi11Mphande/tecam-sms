@@ -1,7 +1,7 @@
 // app/dev-dashboard/reports/page.tsx
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   IconChartBar,
   IconDatabase,
@@ -26,67 +26,59 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-
-const systemHealth = {
-  status: "healthy",
-  uptime: "99.9%",
-  responseTime: "245ms",
-  activeUsers: 184,
-  activeShops: 28,
-  apiCalls: "124.5K",
-  errors: 12,
-}
-
-const usageStats = {
-  totalUsers: 184,
-  activeToday: 56,
-  newThisWeek: 23,
-  avgSession: "12m",
-  topFeatures: [
-    { name: "Sales Management", usage: 85 },
-    { name: "Inventory", usage: 72 },
-    { name: "Staff Management", usage: 64 },
-    { name: "Reports", usage: 48 },
-  ],
-}
-
-const auditLogs = [
-  {
-    id: "1",
-    user: "admin@system.com",
-    action: "User Created",
-    target: "Shop Owner - John Doe",
-    timestamp: "2024-01-15 10:30 AM",
-    ip: "192.168.1.1",
-  },
-  {
-    id: "2",
-    user: "admin@system.com",
-    action: "Subscription Updated",
-    target: "Tech Haven - Premium Plan",
-    timestamp: "2024-01-15 09:15 AM",
-    ip: "192.168.1.1",
-  },
-  {
-    id: "3",
-    user: "system",
-    action: "Payment Processed",
-    target: "Fashion Hub - $149.00",
-    timestamp: "2024-01-15 08:45 AM",
-    ip: "system",
-  },
-  {
-    id: "4",
-    user: "jane@fashionhub.com",
-    action: "Login",
-    target: "Successful login",
-    timestamp: "2024-01-15 08:30 AM",
-    ip: "192.168.1.2",
-  },
-]
+import { devDashService } from "@/lib/services/dev-dash.service"
 
 export default function ReportsPage() {
   const [reportType, setReportType] = useState("usage")
+  const [systemHealth, setSystemHealth] = useState<any>({
+    status: "healthy",
+    uptime: "0%",
+    responseTime: "0ms",
+    activeUsers: 0,
+    activeShops: 0,
+    apiCalls: "0",
+    errors: 0,
+    serverLoad: 0,
+    memoryUsed: 0,
+    memoryTotal: 0,
+    dbConnections: 0,
+    dbMaxConnections: 0,
+    errorRate: 0,
+  })
+  const [usageStats, setUsageStats] = useState<any>({
+    totalUsers: 0,
+    activeToday: 0,
+    newThisWeek: 0,
+    avgSession: "0m",
+    topFeatures: [],
+  })
+  const [auditLogs, setAuditLogs] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+        const [healthRes, statsRes] = await Promise.all([
+          devDashService.getSystemHealth(),
+          devDashService.getStats(),
+        ])
+        const health = healthRes.data || {}
+        const stats = statsRes.data || {}
+        setSystemHealth(health)
+        setUsageStats(stats)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load data")
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [])
+
+  if (loading) return <div className="flex items-center justify-center h-96">Loading reports...</div>
+  if (error) return <div className="flex items-center justify-center h-96 text-red-500">Error: {error}</div>
 
   return (
     <div className="flex flex-col gap-4">
@@ -194,7 +186,7 @@ export default function ReportsPage() {
                 <CardDescription>Most used features this month</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {usageStats.topFeatures.map((feature) => (
+                {usageStats.topFeatures.map((feature: any) => (
                   <div key={feature.name} className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">{feature.name}</span>
@@ -218,33 +210,33 @@ export default function ReportsPage() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Server Load</span>
-                  <span className="text-sm text-muted-foreground">45%</span>
+                  <span className="text-sm text-muted-foreground">{systemHealth.serverLoad}%</span>
                 </div>
-                <Progress value={45} />
+                <Progress value={systemHealth.serverLoad} />
               </div>
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Memory Usage</span>
-                  <span className="text-sm text-muted-foreground">3.2GB / 8GB</span>
+                  <span className="text-sm text-muted-foreground">{systemHealth.memoryUsed}GB / {systemHealth.memoryTotal}GB</span>
                 </div>
-                <Progress value={40} />
+                <Progress value={systemHealth.memoryTotal ? (systemHealth.memoryUsed / systemHealth.memoryTotal) * 100 : 0} />
               </div>
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Database Connections</span>
-                  <span className="text-sm text-muted-foreground">24 / 100</span>
+                  <span className="text-sm text-muted-foreground">{systemHealth.dbConnections} / {systemHealth.dbMaxConnections}</span>
                 </div>
-                <Progress value={24} />
+                <Progress value={systemHealth.dbMaxConnections ? (systemHealth.dbConnections / systemHealth.dbMaxConnections) * 100 : 0} />
               </div>
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Error Rate</span>
-                  <span className="text-sm text-muted-foreground">0.5%</span>
+                  <span className="text-sm text-muted-foreground">{systemHealth.errorRate}%</span>
                 </div>
-                <Progress value={0.5} max={5} />
+                <Progress value={systemHealth.errorRate} max={5} />
               </div>
             </CardContent>
           </Card>
@@ -258,26 +250,30 @@ export default function ReportsPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {auditLogs.map((log) => (
-                  <div key={log.id} className="flex items-start gap-4 border-b pb-4 last:border-0">
-                    <div className="mt-1">
-                      <IconShield className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">{log.user}</span>
-                        <Badge variant="outline">{log.action}</Badge>
+                  {auditLogs.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">No audit logs found</div>
+                  ) : (
+                    auditLogs.map((log) => (
+                      <div key={log.id} className="flex items-start gap-4 border-b pb-4 last:border-0">
+                        <div className="mt-1">
+                          <IconShield className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1 space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium">{log.user}</span>
+                            <Badge variant="outline">{log.action}</Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground">{log.target}</p>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <IconClock className="h-3 w-3" />
+                            <span>{log.timestamp}</span>
+                            <span>•</span>
+                            <span>IP: {log.ip}</span>
+                          </div>
+                        </div>
                       </div>
-                      <p className="text-sm text-muted-foreground">{log.target}</p>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <IconClock className="h-3 w-3" />
-                        <span>{log.timestamp}</span>
-                        <span>•</span>
-                        <span>IP: {log.ip}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                    ))
+                  )}
               </div>
             </CardContent>
           </Card>

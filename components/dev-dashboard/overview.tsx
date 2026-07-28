@@ -46,7 +46,7 @@ export function Overview() {
           fontSize={12}
           tickLine={false}
           axisLine={false}
-          tickFormatter={(value) => `$${value}`}
+          tickFormatter={(value) => `MK${value}`}
         />
         <Bar
           dataKey="total"

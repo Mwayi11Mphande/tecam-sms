@@ -1,4 +1,3 @@
-// app/shop-owner/settings/page.tsx
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -28,6 +27,7 @@ import {
   Package
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { formatMK } from "@/lib/currency"
 
 export default function SettingsPage() {
   return (
@@ -112,19 +112,12 @@ export default function SettingsPage() {
                 Set your store operating hours
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((day) => (
-                <div key={day} className="flex items-center justify-between">
-                  <Label htmlFor={`hours-${day}`}>{day}</Label>
-                  <div className="flex items-center gap-2">
-                    <Input type="time" id={`open-${day}`} className="w-32" defaultValue="09:00" />
-                    <span>to</span>
-                    <Input type="time" id={`close-${day}`} className="w-32" defaultValue="18:00" />
-                    <Switch id={`closed-${day}`} />
-                    <Label htmlFor={`closed-${day}`}>Closed</Label>
-                  </div>
-                </div>
-              ))}
+            <CardContent>
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <Store className="h-12 w-12 text-muted-foreground mb-4" />
+                <p className="text-sm text-muted-foreground">No business hours configured yet</p>
+                <p className="text-xs text-muted-foreground mt-1">Add your operating days and hours</p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -138,22 +131,12 @@ export default function SettingsPage() {
                 Configure accepted payment methods
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {[
-                { name: "Credit/Debit Cards", enabled: true, description: "Accept Visa, MasterCard, American Express" },
-                { name: "PayPal", enabled: true, description: "Secure PayPal payments" },
-                { name: "Cash on Delivery", enabled: false, description: "Pay when you receive the order" },
-                { name: "Bank Transfer", enabled: true, description: "Direct bank transfers" },
-                { name: "Digital Wallets", enabled: false, description: "Apple Pay, Google Pay, etc." },
-              ].map((method) => (
-                <div key={method.name} className="flex items-center justify-between border-b pb-4">
-                  <div>
-                    <h3 className="font-medium">{method.name}</h3>
-                    <p className="text-sm text-muted-foreground">{method.description}</p>
-                  </div>
-                  <Switch defaultChecked={method.enabled} />
-                </div>
-              ))}
+            <CardContent>
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <CreditCard className="h-12 w-12 text-muted-foreground mb-4" />
+                <p className="text-sm text-muted-foreground">No payment methods configured yet</p>
+                <p className="text-xs text-muted-foreground mt-1">Add payment methods your customers can use</p>
+              </div>
             </CardContent>
           </Card>
 
@@ -165,23 +148,19 @@ export default function SettingsPage() {
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="currency">Currency</Label>
-                  <Select defaultValue="usd">
+                  <Select defaultValue="mk">
                     <SelectTrigger>
                       <SelectValue placeholder="Select currency" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="usd">USD ($)</SelectItem>
-                      <SelectItem value="eur">EUR (€)</SelectItem>
-                      <SelectItem value="gbp">GBP (£)</SelectItem>
-                      <SelectItem value="jpy">JPY (¥)</SelectItem>
-                      <SelectItem value="aud">AUD (A$)</SelectItem>
+                      <SelectItem value="mk">MK (Malawian Kwacha)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="tax-rate">Tax Rate (%)</Label>
-                  <Input id="tax-rate" type="number" defaultValue="8.5" step="0.1" />
+                  <Input id="tax-rate" type="number" defaultValue="0" step="0.1" />
                 </div>
               </div>
             </CardContent>
@@ -194,24 +173,12 @@ export default function SettingsPage() {
             <CardHeader>
               <CardTitle>Shipping Methods</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {[
-                { name: "Standard Shipping", cost: "$4.99", delivery: "3-5 business days", enabled: true },
-                { name: "Express Shipping", cost: "$9.99", delivery: "1-2 business days", enabled: true },
-                { name: "Next Day Delivery", cost: "$19.99", delivery: "Next business day", enabled: false },
-                { name: "Free Shipping", cost: "Free", delivery: "5-7 business days", enabled: true },
-                { name: "Local Pickup", cost: "Free", delivery: "Ready in 1 hour", enabled: false },
-              ].map((method) => (
-                <div key={method.name} className="flex items-center justify-between border-b pb-4">
-                  <div>
-                    <h3 className="font-medium">{method.name}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {method.cost} • {method.delivery}
-                    </p>
-                  </div>
-                  <Switch defaultChecked={method.enabled} />
-                </div>
-              ))}
+            <CardContent>
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <Truck className="h-12 w-12 text-muted-foreground mb-4" />
+                <p className="text-sm text-muted-foreground">No shipping methods configured yet</p>
+                <p className="text-xs text-muted-foreground mt-1">Add shipping options for your customers</p>
+              </div>
             </CardContent>
           </Card>
 
@@ -219,14 +186,11 @@ export default function SettingsPage() {
             <CardHeader>
               <CardTitle>Shipping Zones</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Shipping Regions</Label>
-                <div className="flex flex-wrap gap-2">
-                  {["United States", "Canada", "United Kingdom", "Australia", "Germany", "France"].map((region) => (
-                    <Badge key={region} variant="secondary">{region}</Badge>
-                  ))}
-                </div>
+            <CardContent>
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <MapPin className="h-12 w-12 text-muted-foreground mb-4" />
+                <p className="text-sm text-muted-foreground">No shipping zones configured yet</p>
+                <p className="text-xs text-muted-foreground mt-1">Define regions you ship to</p>
               </div>
             </CardContent>
           </Card>
@@ -238,22 +202,12 @@ export default function SettingsPage() {
             <CardHeader>
               <CardTitle>Email Notifications</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {[
-                { title: "New Order Notifications", description: "Get notified when a new order is placed" },
-                { title: "Low Stock Alerts", description: "Receive alerts when products are running low" },
-                { title: "Customer Messages", description: "Email notifications for customer inquiries" },
-                { title: "Sales Reports", description: "Daily/weekly sales summary emails" },
-                { title: "System Updates", description: "Important system and security updates" },
-              ].map((notification) => (
-                <div key={notification.title} className="flex items-center justify-between border-b pb-4">
-                  <div>
-                    <h3 className="font-medium">{notification.title}</h3>
-                    <p className="text-sm text-muted-foreground">{notification.description}</p>
-                  </div>
-                  <Switch defaultChecked={true} />
-                </div>
-              ))}
+            <CardContent>
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <Mail className="h-12 w-12 text-muted-foreground mb-4" />
+                <p className="text-sm text-muted-foreground">No email notification preferences configured yet</p>
+                <p className="text-xs text-muted-foreground mt-1">Configure which email alerts you receive</p>
+              </div>
             </CardContent>
           </Card>
 
@@ -272,6 +226,42 @@ export default function SettingsPage() {
                   <p className="text-sm text-muted-foreground">Receive SMS for urgent orders</p>
                 </div>
                 <Switch />
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Security Settings */}
+        <TabsContent value="security" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Security Settings</CardTitle>
+              <CardDescription>
+                Manage your account security and access controls
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <Shield className="h-12 w-12 text-muted-foreground mb-4" />
+                <p className="text-sm text-muted-foreground">Security settings will be available soon</p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Advanced Settings */}
+        <TabsContent value="advanced" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Advanced Settings</CardTitle>
+              <CardDescription>
+                Advanced configuration options for your store
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <Globe className="h-12 w-12 text-muted-foreground mb-4" />
+                <p className="text-sm text-muted-foreground">Advanced settings will be available soon</p>
               </div>
             </CardContent>
           </Card>

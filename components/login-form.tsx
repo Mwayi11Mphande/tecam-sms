@@ -1,7 +1,7 @@
-// components/login-form.tsx
 "use client"
 
-import { FormEvent, useState } from "react"
+import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -21,52 +21,85 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { IconBrandWhatsapp, IconPhone, IconMessage, IconHelpCircle } from "@tabler/icons-react"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-
-type LoginFormProps = {
-  onSubmit: (email: string, password: string) => void | Promise<void>;
-  loading?: boolean;
-  className?: string;
-};
+import { IconBrandWhatsapp, IconPhone, IconHelpCircle } from "@tabler/icons-react"
+import { authService } from "@/lib/services/auth.service"
 
 export function LoginForm({
   className,
-  onSubmit = () => {},
-  loading = false,
   ...props
-}: LoginFormProps) {
+}: React.ComponentProps<"div">) {
+  const router = useRouter()
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false)
   const [helpDialogOpen, setHelpDialogOpen] = useState(false)
   const [contactMethod, setContactMethod] = useState<"whatsapp" | "call">("whatsapp")
   const [phoneNumber, setPhoneNumber] = useState("")
   const [message, setMessage] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
 
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError("")
+    setLoading(true)
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    console.log("onSubmit:", onSubmit);
-    onSubmit(email, password);
-  };
+    try {
+      const res = await authService.login(email, password)
+      const { token, user } = res.data!
+      localStorage.setItem("token", token)
+      localStorage.setItem("user", JSON.stringify(user))
+      if (user.shopId) localStorage.setItem("shopId", user.shopId)
 
+      switch (user.role) {
+        case "SUPER_ADMIN":
+          router.push("/dev-dash")
+          break
+        case "OWNER":
+          router.push("/shop-owner")
+          break
+        case "CASHIER":
+          router.push("/shop-cashier")
+          break
+        default:
+          router.push("/dashboard")
+      }
+    } catch (err: any) {
+      setError(err.message || "Login failed")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSubmitHelp = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSubmitting(true)
+    await new Promise(resolve => setTimeout(resolve, 1500))
+
+    if (contactMethod === "whatsapp") {
+      const cleanNumber = phoneNumber.replace(/\D/g, '')
+      const whatsappMessage = encodeURIComponent(
+        message || "Hello, I need help with my account login. Please assist me."
+      )
+      window.open(`https://wa.me/${cleanNumber}?text=${whatsappMessage}`, '_blank')
+    } else {
+      alert(`Support will call you back on ${phoneNumber} shortly.`)
+    }
+
+    setIsSubmitting(false)
+    setHelpDialogOpen(false)
+    setPhoneNumber("")
+    setMessage("")
+  }
 
   return (
-    <div className={cn("flex flex-col gap-6", className)}>
+    <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card className="overflow-hidden p-0">
         <CardContent className="grid p-0 md:grid-cols-2">
-          <form className="p-6 md:p-8" onSubmit={handleSubmit}>
+          <form onSubmit={handleLogin} className="p-6 md:p-8">
             <FieldGroup>
               <div className="flex flex-col items-center gap-2 text-center">
                 <h1 className="text-2xl font-bold">Welcome back</h1>
@@ -74,6 +107,12 @@ export function LoginForm({
                   Login to your smartShop account
                 </p>
               </div>
+
+              {error && (
+                <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">
+                  {error}
+                </div>
+              )}
 
               <Field>
                 <FieldLabel htmlFor="email">Email</FieldLabel>
@@ -91,20 +130,21 @@ export function LoginForm({
                 <div className="flex items-center">
                   <FieldLabel htmlFor="password">Password</FieldLabel>
                 </div>
-                <Input 
-                  id="password" 
-                  type="password" 
+                <Input
+                  id="password"
+                  type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  required 
+                  required
                 />
               </Field>
 
               <Field>
-                <Button type="submit" className="w-full">Login</Button>
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? "Signing in..." : "Login"}
+                </Button>
               </Field>
 
-              {/* Help link instead of sign up */}
               <div className="text-center mt-2">
                 <button
                   type="button"
@@ -152,7 +192,6 @@ export function LoginForm({
             </FieldGroup>
           </form>
 
-          {/* Styled image side */}
           <div className="bg-muted relative hidden md:block overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-primary/30 via-primary/10 to-transparent z-10" />
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_20%,rgba(0,0,0,0.2)_100%)] z-10" />
@@ -185,7 +224,6 @@ export function LoginForm({
         </a>.
       </FieldDescription>
 
-      {/* Help/Support Dialog */}
       <Dialog open={helpDialogOpen} onOpenChange={setHelpDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -198,7 +236,7 @@ export function LoginForm({
             </DialogDescription>
           </DialogHeader>
 
-          <form className="space-y-4 py-4">
+          <form onSubmit={handleSubmitHelp} className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>How would you like to be contacted?</Label>
               <div className="grid grid-cols-2 gap-2">

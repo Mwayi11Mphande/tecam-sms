@@ -52,7 +52,7 @@ export function RevenueChart() {
           fontSize={12}
           tickLine={false}
           axisLine={false}
-          tickFormatter={(value) => `$${value}`}
+          tickFormatter={(value) => `MK${value}`}
         />
         <Tooltip
           content={({ active, payload }) => {
@@ -65,7 +65,7 @@ export function RevenueChart() {
                         Revenue
                       </span>
                       <span className="font-bold text-muted-foreground">
-                        ${payload[0].value}
+                        MK{payload[0].value}
                       </span>
                     </div>
                     <div className="flex flex-col">

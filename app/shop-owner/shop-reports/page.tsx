@@ -1,4 +1,6 @@
-// // app/shop-owner/shop-reports/page.tsx
+"use client"
+
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
@@ -21,8 +23,77 @@ import {
   Users,
   Package
 } from "lucide-react"
+import { saleService } from "@/lib/services/sale.service"
+import { formatMK } from "@/lib/currency"
+
+interface TopProduct {
+  name: string
+  quantity: number
+  revenue: number
+}
 
 export default function ShopReportsPage() {
+  const [totalSales, setTotalSales] = useState(0)
+  const [ordersCount, setOrdersCount] = useState(0)
+  const [averageOrder, setAverageOrder] = useState(0)
+  const [topProducts, setTopProducts] = useState<TopProduct[]>([])
+  const [uniqueCustomers, setUniqueCustomers] = useState(0)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const userStr = localStorage.getItem("user")
+        if (!userStr) return
+        const user = JSON.parse(userStr)
+        const shopId = user.shopId || user.shop?.id
+        if (!shopId) return
+
+        const res = await saleService.getAll({ shopId })
+        const sales = res.data || []
+
+        const total = sales.reduce((sum: number, s: any) => sum + (s.total || s.amount || 0), 0)
+        const count = sales.length
+        const avg = count > 0 ? total / count : 0
+
+        const customers = new Set(sales.map((s: any) => s.customerId || s.customer))
+        const productMap = new Map<string, { quantity: number; revenue: number }>()
+
+        for (const sale of sales) {
+          const items = sale.items || []
+          for (const item of items) {
+            const qty = item.quantity || 1
+            const price = item.unitPrice || item.price || 0
+            const existing = productMap.get(item.name)
+            if (existing) {
+              existing.quantity += qty
+              existing.revenue += qty * price
+            } else {
+              productMap.set(item.name, { quantity: qty, revenue: qty * price })
+            }
+          }
+        }
+
+        const products = Array.from(productMap.entries())
+          .map(([name, data]) => ({ name, ...data }))
+          .sort((a, b) => b.revenue - a.revenue)
+          .slice(0, 5)
+
+        setTotalSales(total)
+        setOrdersCount(count)
+        setAverageOrder(avg)
+        setTopProducts(products)
+        setUniqueCustomers(customers.size)
+      } catch (err) {
+        console.error("Failed to load report data", err)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [])
+
   const timePeriods = ["Today", "Yesterday", "Last 7 Days", "Last 30 Days", "This Month", "Last Month", "Custom Range"]
   const reportTypes = ["Sales Report", "Inventory Report", "Customer Report", "Financial Report", "Performance Report"]
 
@@ -91,26 +162,43 @@ export default function ShopReportsPage() {
             <CardTitle>Sales Performance</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="h-64 bg-muted rounded-lg flex items-center justify-center">
-                <LineChart className="h-12 w-12 text-muted-foreground" />
-                <span className="ml-2 text-muted-foreground">Sales Chart</span>
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="text-center p-4 bg-green-50 rounded-lg">
-                  <p className="text-2xl font-bold text-green-700">$12,450</p>
-                  <p className="text-sm text-green-600">Total Sales</p>
+            {isLoading ? (
+              <div className="space-y-4">
+                <div className="h-64 bg-muted rounded-lg animate-pulse flex items-center justify-center">
+                  <LineChart className="h-12 w-12 text-muted-foreground" />
+                  <span className="ml-2 text-muted-foreground">Sales Chart</span>
                 </div>
-                <div className="text-center p-4 bg-blue-50 rounded-lg">
-                  <p className="text-2xl font-bold text-blue-700">156</p>
-                  <p className="text-sm text-blue-600">Orders</p>
-                </div>
-                <div className="text-center p-4 bg-purple-50 rounded-lg">
-                  <p className="text-2xl font-bold text-purple-700">$79.81</p>
-                  <p className="text-sm text-purple-600">Average Order</p>
+                <div className="grid grid-cols-3 gap-4">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="text-center p-4 bg-muted rounded-lg animate-pulse">
+                      <div className="h-8 w-24 bg-muted-foreground/20 rounded mx-auto mb-2" />
+                      <div className="h-4 w-16 bg-muted-foreground/20 rounded mx-auto" />
+                    </div>
+                  ))}
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="h-64 bg-muted rounded-lg flex items-center justify-center">
+                  <LineChart className="h-12 w-12 text-muted-foreground" />
+                  <span className="ml-2 text-muted-foreground">Sales Chart</span>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="text-center p-4 bg-green-50 rounded-lg">
+                    <p className="text-2xl font-bold text-green-700">{formatMK(totalSales)}</p>
+                    <p className="text-sm text-green-600">Total Sales</p>
+                  </div>
+                  <div className="text-center p-4 bg-blue-50 rounded-lg">
+                    <p className="text-2xl font-bold text-blue-700">{ordersCount}</p>
+                    <p className="text-sm text-blue-600">Orders</p>
+                  </div>
+                  <div className="text-center p-4 bg-purple-50 rounded-lg">
+                    <p className="text-2xl font-bold text-purple-700">{formatMK(averageOrder)}</p>
+                    <p className="text-sm text-purple-600">Average Order</p>
+                  </div>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -120,26 +208,42 @@ export default function ShopReportsPage() {
             <CardTitle>Top Products</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {[
-                { name: "Wireless Headphones", sales: 45, revenue: "$4,455" },
-                { name: "Smart Watch", sales: 32, revenue: "$6,399" },
-                { name: "Phone Case", sales: 89, revenue: "$2,669" },
-                { name: "USB-C Cable", sales: 124, revenue: "$2,479" },
-                { name: "Bluetooth Speaker", sales: 28, revenue: "$2,239" },
-              ].map((product, index) => (
-                <div key={product.name} className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <span className="font-medium text-sm">{index + 1}.</span>
-                    <span className="ml-2 text-sm">{product.name}</span>
+            {isLoading ? (
+              <div className="space-y-4">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="flex items-center justify-between animate-pulse">
+                    <div className="flex items-center">
+                      <div className="h-4 w-4 bg-muted-foreground/20 rounded" />
+                      <div className="ml-2 h-4 w-32 bg-muted-foreground/20 rounded" />
+                    </div>
+                    <div className="text-right">
+                      <div className="h-4 w-16 bg-muted-foreground/20 rounded ml-auto mb-1" />
+                      <div className="h-3 w-12 bg-muted-foreground/20 rounded ml-auto" />
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium">{product.revenue}</p>
-                    <p className="text-xs text-muted-foreground">{product.sales} sold</p>
+                ))}
+              </div>
+            ) : topProducts.length > 0 ? (
+              <div className="space-y-4">
+                {topProducts.map((product, index) => (
+                  <div key={product.name} className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <span className="font-medium text-sm">{index + 1}.</span>
+                      <span className="ml-2 text-sm">{product.name}</span>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-medium">{formatMK(product.revenue)}</p>
+                      <p className="text-xs text-muted-foreground">{product.quantity} sold</p>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-8 text-center text-muted-foreground">
+                <Package className="h-8 w-8 mx-auto mb-2" />
+                <p className="text-sm">No products sold yet</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -152,23 +256,41 @@ export default function ShopReportsPage() {
             <TrendingUp className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">+15.3%</div>
-            <p className="text-xs text-green-500">
-              Compared to last month
-            </p>
+            {isLoading ? (
+              <div className="animate-pulse space-y-2">
+                <div className="h-8 w-20 bg-muted-foreground/20 rounded" />
+                <div className="h-4 w-32 bg-muted-foreground/20 rounded" />
+              </div>
+            ) : (
+              <>
+                <div className="text-2xl font-bold">{formatMK(totalSales)}</div>
+                <p className="text-xs text-muted-foreground">
+                  {ordersCount > 0 ? `${ordersCount} order${ordersCount !== 1 ? 's' : ''} total` : 'No sales yet'}
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Customer Growth</CardTitle>
+            <CardTitle className="text-sm font-medium">Customer Reach</CardTitle>
             <Users className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">+24%</div>
-            <p className="text-xs text-green-500">
-              89 new customers
-            </p>
+            {isLoading ? (
+              <div className="animate-pulse space-y-2">
+                <div className="h-8 w-20 bg-muted-foreground/20 rounded" />
+                <div className="h-4 w-32 bg-muted-foreground/20 rounded" />
+              </div>
+            ) : (
+              <>
+                <div className="text-2xl font-bold">{uniqueCustomers}</div>
+                <p className="text-xs text-muted-foreground">
+                  unique customers
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -178,10 +300,19 @@ export default function ShopReportsPage() {
             <Package className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">3.2x</div>
-            <p className="text-xs text-green-500">
-              Better than industry avg.
-            </p>
+            {isLoading ? (
+              <div className="animate-pulse space-y-2">
+                <div className="h-8 w-20 bg-muted-foreground/20 rounded" />
+                <div className="h-4 w-32 bg-muted-foreground/20 rounded" />
+              </div>
+            ) : (
+              <>
+                <div className="text-2xl font-bold">--</div>
+                <p className="text-xs text-muted-foreground">
+                  Data unavailable
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -191,10 +322,19 @@ export default function ShopReportsPage() {
             <DollarSign className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">42.5%</div>
-            <p className="text-xs text-green-500">
-              +2.5% from last quarter
-            </p>
+            {isLoading ? (
+              <div className="animate-pulse space-y-2">
+                <div className="h-8 w-20 bg-muted-foreground/20 rounded" />
+                <div className="h-4 w-32 bg-muted-foreground/20 rounded" />
+              </div>
+            ) : (
+              <>
+                <div className="text-2xl font-bold">--</div>
+                <p className="text-xs text-muted-foreground">
+                  Data unavailable
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>

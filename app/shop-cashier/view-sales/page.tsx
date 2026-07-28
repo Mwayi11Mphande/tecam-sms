@@ -1,4 +1,5 @@
-// app/dashboard/sales/page.tsx
+"use client"
+
 import { ViewSales } from "@/components/dashboard/viewSales/view-sales"
 import {
   SidebarInset,

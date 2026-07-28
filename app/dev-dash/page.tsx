@@ -1,6 +1,6 @@
-// app/dev-dashboard/page.tsx
 "use client"
 
+import { useState, useEffect } from "react"
 import { 
   IconBuildingStore, 
   IconUsers, 
@@ -8,15 +8,37 @@ import {
   IconCreditCard,
   IconTrendingUp,
   IconAlertCircle,
-    IconCircle,
+  IconCircle,
   IconClock
 } from "@tabler/icons-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Overview } from "@/components/dev-dashboard/overview"
 import { RecentPayments } from "@/components/dev-dashboard/recent-payments"
 import { SubscriptionStatus } from "@/components/dev-dashboard/subscription-status"
+import { devDashService } from "@/lib/services/dev-dash.service"
+import { paymentService } from "@/lib/services/payment.service"
 
 export default function DevDashboardPage() {
+  const [stats, setStats] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.all([
+      devDashService.getStats(),
+      paymentService.getStats(),
+    ]).then(([statsRes, paymentRes]) => {
+      setStats({ ...statsRes.data, payments: paymentRes.data })
+    }).catch(console.error).finally(() => setLoading(false))
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-muted-foreground">Loading dashboard...</div>
+      </div>
+    )
+  }
+
   return (
     <>
       <div className="flex flex-col gap-4">
@@ -28,7 +50,6 @@ export default function DevDashboardPage() {
           </div>
         </div>
 
-        {/* Stats Cards */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -36,9 +57,9 @@ export default function DevDashboardPage() {
               <IconBuildingStore className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">28</div>
+              <div className="text-2xl font-bold">{stats?.totalShops || 0}</div>
               <p className="text-xs text-muted-foreground">
-                +3 from last month
+                {stats?.pendingApprovals || 0} pending approvals
               </p>
             </CardContent>
           </Card>
@@ -49,9 +70,9 @@ export default function DevDashboardPage() {
               <IconUsers className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">184</div>
+              <div className="text-2xl font-bold">{stats?.totalUsers || 0}</div>
               <p className="text-xs text-muted-foreground">
-                +12 from last month
+                Registered users
               </p>
             </CardContent>
           </Card>
@@ -62,28 +83,27 @@ export default function DevDashboardPage() {
               <IconCurrencyDollar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">$12,450</div>
+              <div className="text-2xl font-bold">${(stats?.monthlyRevenue || 0).toLocaleString()}</div>
               <p className="text-xs text-muted-foreground text-green-600 dark:text-green-400">
-                +8% from last month
+                +0% from last month
               </p>
             </CardContent>
           </Card>
           
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pending Payments</CardTitle>
+              <CardTitle className="text-sm font-medium">Payments</CardTitle>
               <IconCreditCard className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">5</div>
+              <div className="text-2xl font-bold">{stats?.payments?.summary?.totalTransactions || 0}</div>
               <p className="text-xs text-muted-foreground text-amber-600 dark:text-amber-400">
-                Total: $2,450
+                Total: ${(stats?.payments?.summary?.totalRevenue || 0).toLocaleString()}
               </p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Charts and Tables */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
           <Card className="col-span-4">
             <CardHeader>
@@ -110,7 +130,6 @@ export default function DevDashboardPage() {
           </Card>
         </div>
 
-        {/* Recent Payments */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
           <Card className="col-span-4">
             <CardHeader>
@@ -136,7 +155,7 @@ export default function DevDashboardPage() {
                 <IconAlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
                 <div className="flex-1">
                   <p className="text-sm font-medium">Pending Shop Approvals</p>
-                  <p className="text-xs text-muted-foreground">3 shops waiting for review</p>
+                  <p className="text-xs text-muted-foreground">{stats?.pendingApprovals || 0} shops waiting for review</p>
                 </div>
               </div>
               
@@ -152,7 +171,7 @@ export default function DevDashboardPage() {
                 <IconTrendingUp className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 <div className="flex-1">
                   <p className="text-sm font-medium">Monthly Growth</p>
-                  <p className="text-xs text-muted-foreground">+15% new signups this month</p>
+                  <p className="text-xs text-muted-foreground">{stats?.totalShops > 0 ? "+new signups" : "No data yet"}</p>
                 </div>
               </div>
             </CardContent>

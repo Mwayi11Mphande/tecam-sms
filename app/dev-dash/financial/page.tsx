@@ -1,7 +1,7 @@
 // app/dev-dashboard/financial/page.tsx
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   IconCurrencyDollar,
   IconTrendingUp,
@@ -34,66 +34,63 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { PaymentMethodChart } from "@/components/dev-dashboard/payment-method-chart"
 import { RevenueChart } from "@/components/dev-dashboard/revenue-chart"
-
-const financialData = {
-  totalRevenue: 152450,
-  monthlyRevenue: 32450,
-  growth: 12.5,
-  projectedRevenue: 185000,
-  averageTransaction: 189,
-  successRate: 98.5,
-}
-
-const transactions = [
-  {
-    id: "1",
-    date: "2024-01-15",
-    shop: "Tech Haven",
-    amount: 299,
-    status: "completed",
-    method: "Credit Card",
-    type: "subscription",
-  },
-  {
-    id: "2",
-    date: "2024-01-15",
-    shop: "Fashion Hub",
-    amount: 149,
-    status: "completed",
-    method: "PayPal",
-    type: "subscription",
-  },
-  {
-    id: "3",
-    date: "2024-01-14",
-    shop: "Grocery Mart",
-    amount: 99,
-    status: "pending",
-    method: "Bank Transfer",
-    type: "subscription",
-  },
-  {
-    id: "4",
-    date: "2024-01-14",
-    shop: "Bookstore Plus",
-    amount: 149,
-    status: "completed",
-    method: "Credit Card",
-    type: "subscription",
-  },
-  {
-    id: "5",
-    date: "2024-01-13",
-    shop: "Electronics World",
-    amount: 299,
-    status: "completed",
-    method: "Credit Card",
-    type: "subscription",
-  },
-]
+import { formatMK } from "@/lib/currency"
+import { paymentService } from "@/lib/services/payment.service"
 
 export default function FinancialPage() {
   const [dateRange, setDateRange] = useState("month")
+  const [financialData, setFinancialData] = useState<any>({
+    totalRevenue: 0,
+    monthlyRevenue: 0,
+    growth: 0,
+    projectedRevenue: 0,
+    averageTransaction: 0,
+    successRate: 0,
+  })
+  const [transactions, setTransactions] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+        const [txnsRes, statsRes] = await Promise.all([
+          paymentService.getAll(),
+          paymentService.getStats(),
+        ])
+        const txns = txnsRes.data || []
+        const stats = statsRes.data || { summary: {}, monthly: [] }
+        setTransactions(txns.map((t: any) => ({
+          id: t.id,
+          date: t.createdAt,
+          shop: t.shopName || "N/A",
+          amount: Number(t.amount),
+          method: t.method,
+          status: t.status,
+          type: "subscription",
+        })))
+        setFinancialData({
+          totalRevenue: Number(stats.summary?.totalRevenue || 0),
+          monthlyRevenue: Number(stats.summary?.totalRevenue || 0),
+          growth: 0,
+          projectedRevenue: 0,
+          averageTransaction: Number(stats.summary?.averageTransaction || 0),
+          successRate: stats.summary?.totalTransactions
+            ? Math.round((stats.summary?.successfulTransactions || 0) / stats.summary.totalTransactions * 100)
+            : 100,
+        })
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load data")
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [])
+
+  if (loading) return <div className="flex items-center justify-center h-96">Loading financial data...</div>
+  if (error) return <div className="flex items-center justify-center h-96 text-red-500">Error: {error}</div>
 
   return (
     <div className="flex flex-col gap-4">
@@ -129,7 +126,7 @@ export default function FinancialPage() {
             <IconCurrencyDollar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${financialData.totalRevenue.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{formatMK(financialData.totalRevenue)}</div>
             <p className="text-xs text-muted-foreground">+20.1% from last year</p>
           </CardContent>
         </Card>
@@ -140,7 +137,7 @@ export default function FinancialPage() {
             <IconCalendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${financialData.monthlyRevenue.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{formatMK(financialData.monthlyRevenue)}</div>
             <div className="flex items-center gap-1 text-xs text-green-600">
               <IconTrendingUp className="h-3 w-3" />
               <span>+{financialData.growth}% from last month</span>
@@ -154,7 +151,7 @@ export default function FinancialPage() {
             <IconReceipt className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${financialData.averageTransaction}</div>
+            <div className="text-2xl font-bold">{formatMK(financialData.averageTransaction)}</div>
             <p className="text-xs text-muted-foreground">Per subscription</p>
           </CardContent>
         </Card>
@@ -220,73 +217,48 @@ export default function FinancialPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {transactions.map((transaction) => (
-                <TableRow key={transaction.id}>
-                  <TableCell>{new Date(transaction.date).toLocaleDateString()}</TableCell>
-                  <TableCell className="font-medium">{transaction.shop}</TableCell>
-                  <TableCell>${transaction.amount}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      {transaction.method === "Credit Card" ? (
-                        <IconCreditCard className="h-4 w-4" />
-                      ) : transaction.method === "PayPal" ? (
-                        <IconCash className="h-4 w-4" />
-                      ) : (
-                        <IconBuildingBank className="h-4 w-4" />
-                      )}
-                      {transaction.method}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={transaction.status === "completed" ? "default" : "secondary"}>
-                      {transaction.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{transaction.type}</TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="sm">View</Button>
+              {transactions.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    No transactions found
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                transactions.map((transaction) => (
+                  <TableRow key={transaction.id}>
+                    <TableCell>{new Date(transaction.date).toLocaleDateString()}</TableCell>
+                    <TableCell className="font-medium">{transaction.shop}</TableCell>
+                    <TableCell>{formatMK(transaction.amount)}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {transaction.method === "Credit Card" ? (
+                          <IconCreditCard className="h-4 w-4" />
+                        ) : transaction.method === "PayPal" ? (
+                          <IconCash className="h-4 w-4" />
+                        ) : (
+                          <IconBuildingBank className="h-4 w-4" />
+                        )}
+                        {transaction.method}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={transaction.status === "completed" ? "default" : "secondary"}>
+                        {transaction.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{transaction.type}</TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="sm">View</Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
 
-      {/* Payouts Summary */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Upcoming Payouts</CardTitle>
-          <CardDescription>
-            Scheduled and pending payouts
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
-              <div className="space-y-1">
-                <p className="text-sm font-medium">Scheduled Payout - Jan 31, 2024</p>
-                <p className="text-xs text-muted-foreground">Monthly subscription revenue</p>
-              </div>
-              <div className="text-right">
-                <p className="text-lg font-bold">$24,560</p>
-                <p className="text-xs text-muted-foreground">28 transactions</p>
-              </div>
-            </div>
 
-            <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
-              <div className="space-y-1">
-                <p className="text-sm font-medium">Scheduled Payout - Feb 15, 2024</p>
-                <p className="text-xs text-muted-foreground">Mid-month processing</p>
-              </div>
-              <div className="text-right">
-                <p className="text-lg font-bold">$12,890</p>
-                <p className="text-xs text-muted-foreground">15 transactions</p>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   )
 }

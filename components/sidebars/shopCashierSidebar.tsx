@@ -7,6 +7,7 @@ import {
   IconPackage,
   IconUsers,
   IconServicemark,
+  IconLock,
 } from "@tabler/icons-react"
 import { NavMain } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
@@ -39,9 +40,14 @@ const data = {
       icon: IconCalculator,
      },
     {
-      title: "Service",
+      title: "Service POS",
       url: "/shop-cashier/service",
       icon: IconServicemark,
+    },
+    {
+      title: "View Services",
+      url: "/shop-cashier/view-services",
+      icon: IconReceipt,
     },
     {
       title: "View Sales",
@@ -54,9 +60,19 @@ const data = {
       icon: IconPackage,
     },
     {
+      title: "Expenses",
+      url: "/shop-cashier/expenses",
+      icon: IconReceipt,
+    },
+    {
       title: "Customers",
       url: "/shop-cashier/customers",
       icon: IconUsers,
+    },
+    {
+      title: "Close Register",
+      url: "/shop-cashier/close-register",
+      icon: IconLock,
     },
   ],
 }

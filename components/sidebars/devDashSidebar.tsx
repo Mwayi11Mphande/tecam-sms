@@ -25,6 +25,7 @@ import {
   IconHistory,
   IconUserPlus,
   IconBuildingBank,
+  IconPackage,
 } from "@tabler/icons-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -78,6 +79,11 @@ const data = {
           badge: "3",
         },
       ],
+    },
+    {
+      title: "Products",
+      url: "/dev-dash/products",
+      icon: IconPackage,
     },
     {
       title: "Subscription Management",

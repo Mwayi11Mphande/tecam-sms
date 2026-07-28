@@ -1,7 +1,7 @@
 // app/dev-dash/reports/page.tsx
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   IconBug,
   IconAlertCircle,
@@ -87,6 +87,7 @@ import {
 } from "@/components/ui/command"
 import { cn } from "@/lib/utils"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { supportService } from "@/lib/services/support.service"
 
 // Types
 interface ErrorReport {
@@ -140,154 +141,6 @@ interface Client {
   lastActive?: string
 }
 
-// Mock Error Reports
-const errorReports: ErrorReport[] = [
-  {
-    id: "1",
-    userId: "u1",
-    userName: "John Doe",
-    userEmail: "john@techhaven.com",
-    userRole: "shop_owner",
-    shopId: "s1",
-    shopName: "Tech Haven",
-    title: "Cannot process credit card payments",
-    description: "When trying to process a credit card payment, the system shows an error 'Payment gateway timeout'. This happens with all credit cards.",
-    category: "payment_issue",
-    priority: "high",
-    status: "in_progress",
-    createdAt: "2024-02-20T09:30:00Z",
-    updatedAt: "2024-02-20T10:15:00Z",
-    stepsToReproduce: "1. Go to sales page\n2. Add item to cart\n3. Try to pay with credit card\n4. See error after 30 seconds",
-    browserInfo: "Chrome 121.0.6167.140",
-    osInfo: "Windows 11",
-    appVersion: "2.1.5",
-    notes: "Payment gateway provider reported issues this morning",
-  },
-  {
-    id: "2",
-    userId: "u2",
-    userName: "Jane Smith",
-    userEmail: "jane@fashionhub.com",
-    userRole: "shop_owner",
-    shopId: "s2",
-    shopName: "Fashion Hub",
-    title: "Inventory count not updating",
-    description: "After making a sale, the inventory count doesn't decrease. I have to manually update stock.",
-    category: "bug",
-    priority: "medium",
-    status: "new",
-    createdAt: "2024-02-20T11:45:00Z",
-    updatedAt: "2024-02-20T11:45:00Z",
-    stepsToReproduce: "1. Sell any item\n2. Check inventory\n3. Count remains the same",
-    browserInfo: "Firefox 122.0",
-    osInfo: "macOS 14.3",
-    appVersion: "2.1.5",
-  },
-  {
-    id: "3",
-    userId: "u3",
-    userName: "Bob Johnson",
-    userEmail: "bob@grocerymart.com",
-    userRole: "shop_owner",
-    shopId: "s3",
-    shopName: "Grocery Mart",
-    title: "Can't login after password reset",
-    description: "I reset my password but the new password doesn't work. I've tried multiple times.",
-    category: "login_issue",
-    priority: "critical",
-    status: "needs_review",
-    createdAt: "2024-02-20T08:15:00Z",
-    updatedAt: "2024-02-20T08:15:00Z",
-    browserInfo: "Safari 17.3",
-    osInfo: "iOS 17.3",
-    appVersion: "2.1.5",
-  },
-  {
-    id: "4",
-    userId: "u4",
-    userName: "Alice Brown",
-    userEmail: "alice@bookstore.com",
-    userRole: "shop_owner",
-    shopId: "s4",
-    shopName: "Bookstore Plus",
-    title: "Reports not generating",
-    description: "When I try to generate monthly sales reports, the page loads indefinitely and never shows the report.",
-    category: "system_error",
-    priority: "high",
-    status: "new",
-    createdAt: "2024-02-19T16:20:00Z",
-    updatedAt: "2024-02-19T16:20:00Z",
-    browserInfo: "Chrome 120.0.6099.217",
-    osInfo: "Windows 10",
-    appVersion: "2.1.4",
-  },
-  {
-    id: "5",
-    userId: "u5",
-    userName: "Charlie Wilson",
-    userEmail: "charlie@electronics.com",
-    userRole: "shop_owner",
-    shopId: "s5",
-    shopName: "Electronics World",
-    title: "Request: Bulk price update feature",
-    description: "It would be great to have a feature to update prices in bulk via CSV upload.",
-    category: "feature_request",
-    priority: "low",
-    status: "new",
-    createdAt: "2024-02-19T14:30:00Z",
-    updatedAt: "2024-02-19T14:30:00Z",
-    appVersion: "2.1.5",
-  },
-]
-
-// Mock Clients for email
-const clients: Client[] = [
-  { id: "1", name: "Tech Haven", email: "contact@techhaven.com", role: "shop", shopName: "Tech Haven", status: "active", lastActive: "2024-02-20T10:30:00Z" },
-  { id: "2", name: "Fashion Hub", email: "info@fashionhub.com", role: "shop", shopName: "Fashion Hub", status: "active", lastActive: "2024-02-20T09:15:00Z" },
-  { id: "3", name: "Grocery Mart", email: "support@grocerymart.com", role: "shop", shopName: "Grocery Mart", status: "pending", lastActive: "2024-02-19T16:45:00Z" },
-  { id: "4", name: "Bookstore Plus", email: "hello@bookstore.com", role: "shop", shopName: "Bookstore Plus", status: "suspended", lastActive: "2024-02-18T11:20:00Z" },
-  { id: "5", name: "Electronics World", email: "sales@electronics.com", role: "shop", shopName: "Electronics World", status: "active", lastActive: "2024-02-20T11:00:00Z" },
-  { id: "6", name: "John Doe", email: "john@techhaven.com", role: "owner", shopName: "Tech Haven", status: "active", lastActive: "2024-02-20T10:30:00Z" },
-  { id: "7", name: "Jane Smith", email: "jane@fashionhub.com", role: "owner", shopName: "Fashion Hub", status: "active", lastActive: "2024-02-20T09:15:00Z" },
-]
-
-// Mock Email Campaigns
-const emailCampaigns: EmailCampaign[] = [
-  {
-    id: "1",
-    subject: "Scheduled Maintenance - Feb 25th",
-    content: "Dear valued customer,\n\nWe will be performing scheduled maintenance on February 25th from 2AM to 4AM EST. During this time, the system may be unavailable.\n\nWe apologize for any inconvenience.\n\nBest regards,\nThe Team",
-    recipients: "all",
-    status: "scheduled",
-    scheduledFor: "2024-02-22T09:00:00Z",
-    sentBy: "admin@system.com",
-    opens: 0,
-    clicks: 0,
-  },
-  {
-    id: "2",
-    subject: "New Feature: Bulk Inventory Update",
-    content: "We're excited to announce a new feature that allows you to update your inventory in bulk using CSV files. Check it out in your dashboard!",
-    recipients: "all",
-    status: "sent",
-    sentAt: "2024-02-18T10:00:00Z",
-    sentBy: "admin@system.com",
-    opens: 156,
-    clicks: 89,
-  },
-  {
-    id: "3",
-    subject: "Payment Issue Resolution",
-    content: "We have resolved the payment processing issues reported earlier today. All systems are now operational.",
-    recipients: "shop_owners",
-    status: "sent",
-    sentAt: "2024-02-19T14:30:00Z",
-    sentBy: "admin@system.com",
-    opens: 45,
-    clicks: 23,
-  },
-]
-
 export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState("errors")
   const [searchTerm, setSearchTerm] = useState("")
@@ -321,6 +174,45 @@ export default function ReportsPage() {
   const [scheduleDate, setScheduleDate] = useState("")
   const [attachments, setAttachments] = useState<File[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
+  const [errorReports, setErrorReports] = useState<ErrorReport[]>([])
+  const [clients, setClients] = useState<Client[]>([])
+  const [emailCampaigns, setEmailCampaigns] = useState<EmailCampaign[]>([])
+  const [supportStats, setSupportStats] = useState<any>({ avgResponseTime: "0h", avgOpenRate: 0 })
+  const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+        const [reportsRes, statsRes] = await Promise.all([
+          supportService.getReports(),
+          supportService.getStats(),
+        ])
+        const reports = reportsRes.data || []
+        const stats = statsRes.data || {}
+        setSupportStats({
+          avgResponseTime: stats.avgResponseTime || "0h",
+          avgOpenRate: stats.avgOpenRate || 0,
+        })
+        setErrorReports(reports.map((r: any) => ({
+          ...r,
+          userName: r.userName || r.user?.fullName || "Unknown",
+          userEmail: r.userEmail || r.user?.email || "",
+          shopName: r.shopName || r.shop?.name || undefined,
+          createdAt: r.createdAt,
+        })))
+      } catch (err) {
+        setFetchError(err instanceof Error ? err.message : "Failed to load data")
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [])
+
+  if (loading) return <div className="flex items-center justify-center h-96">Loading support data...</div>
+  if (fetchError) return <div className="flex items-center justify-center h-96 text-red-500">Error: {fetchError}</div>
 
   // Filter error reports
   const filteredReports = errorReports.filter(report => {
@@ -394,19 +286,40 @@ export default function ReportsPage() {
   }
 
   const handleSaveStatusUpdate = async () => {
+    if (!selectedReport) return
     setIsProcessing(true)
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    console.log("Updating status:", selectedReport?.id, statusUpdate, resolutionNote)
-    setIsProcessing(false)
-    setUpdateStatusDialogOpen(false)
+    try {
+      await supportService.updateReport(selectedReport.id, {
+        status: statusUpdate,
+        notes: resolutionNote || undefined,
+      })
+      setErrorReports(prev =>
+        prev.map(r => r.id === selectedReport.id ? { ...r, status: statusUpdate as ErrorReport["status"], notes: resolutionNote || r.notes } : r)
+      )
+    } catch (err) {
+      console.error("Failed to update report status:", err)
+    } finally {
+      setIsProcessing(false)
+      setUpdateStatusDialogOpen(false)
+    }
   }
 
   const handleSaveNote = async () => {
+    if (!selectedReport) return
     setIsProcessing(true)
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    console.log("Adding note to:", selectedReport?.id, resolutionNote)
-    setIsProcessing(false)
-    setAddNoteDialogOpen(false)
+    try {
+      await supportService.updateReport(selectedReport.id, {
+        notes: resolutionNote || undefined,
+      })
+      setErrorReports(prev =>
+        prev.map(r => r.id === selectedReport.id ? { ...r, notes: resolutionNote || r.notes } : r)
+      )
+    } catch (err) {
+      console.error("Failed to save note:", err)
+    } finally {
+      setIsProcessing(false)
+      setAddNoteDialogOpen(false)
+    }
   }
 
   const handleCreateEmail = () => {
@@ -532,7 +445,7 @@ export default function ReportsPage() {
                 <CardTitle className="text-sm font-medium">Avg Response</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">2.5h</div>
+                <div className="text-2xl font-bold">{supportStats.avgResponseTime}</div>
                 <p className="text-xs text-muted-foreground">Average response time</p>
               </CardContent>
             </Card>
@@ -614,7 +527,14 @@ export default function ReportsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredReports.map((report) => (
+                  {filteredReports.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                        No reports found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredReports.map((report) => (
                     <TableRow key={report.id}>
                       <TableCell className="font-mono text-xs">#{report.id}</TableCell>
                       <TableCell>
@@ -671,7 +591,8 @@ export default function ReportsPage() {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ))
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -694,7 +615,7 @@ export default function ReportsPage() {
                 <CardTitle className="text-sm font-medium">Avg. Open Rate</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">68%</div>
+                <div className="text-2xl font-bold">{supportStats.avgOpenRate}%</div>
               </CardContent>
             </Card>
             <Card>
@@ -717,46 +638,50 @@ export default function ReportsPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {emailCampaigns.map((campaign) => (
-                  <div
-                    key={campaign.id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 cursor-pointer"
-                    onClick={() => {
-                      setSelectedCampaign(campaign)
-                      setViewCampaignDialogOpen(true)
-                    }}
-                  >
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{campaign.subject}</span>
-                        <Badge variant={
-                          campaign.status === "sent" ? "default" :
-                          campaign.status === "scheduled" ? "secondary" :
-                          "outline"
-                        }>
-                          {campaign.status}
-                        </Badge>
+                {emailCampaigns.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">No email campaigns found</div>
+                ) : (
+                  emailCampaigns.map((campaign) => (
+                    <div
+                      key={campaign.id}
+                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 cursor-pointer"
+                      onClick={() => {
+                        setSelectedCampaign(campaign)
+                        setViewCampaignDialogOpen(true)
+                      }}
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{campaign.subject}</span>
+                          <Badge variant={
+                            campaign.status === "sent" ? "default" :
+                            campaign.status === "scheduled" ? "secondary" :
+                            "outline"
+                          }>
+                            {campaign.status}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground line-clamp-1">
+                          {campaign.content}
+                        </p>
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                          <span>To: {campaign.recipients}</span>
+                          {campaign.sentAt && (
+                            <span>Sent: {new Date(campaign.sentAt).toLocaleDateString()}</span>
+                          )}
+                          {campaign.scheduledFor && (
+                            <span>Scheduled: {new Date(campaign.scheduledFor).toLocaleDateString()}</span>
+                          )}
+                          <span>Opens: {campaign.opens}</span>
+                          <span>Clicks: {campaign.clicks}</span>
+                        </div>
                       </div>
-                      <p className="text-sm text-muted-foreground line-clamp-1">
-                        {campaign.content}
-                      </p>
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span>To: {campaign.recipients}</span>
-                        {campaign.sentAt && (
-                          <span>Sent: {new Date(campaign.sentAt).toLocaleDateString()}</span>
-                        )}
-                        {campaign.scheduledFor && (
-                          <span>Scheduled: {new Date(campaign.scheduledFor).toLocaleDateString()}</span>
-                        )}
-                        <span>Opens: {campaign.opens}</span>
-                        <span>Clicks: {campaign.clicks}</span>
-                      </div>
+                      <Button variant="ghost" size="icon">
+                        <IconEye className="h-4 w-4" />
+                      </Button>
                     </div>
-                    <Button variant="ghost" size="icon">
-                      <IconEye className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>
@@ -793,32 +718,40 @@ export default function ReportsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {clients.map((client) => (
-                      <TableRow key={client.id}>
-                        <TableCell className="font-medium">{client.name}</TableCell>
-                        <TableCell>{client.email}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{client.role}</Badge>
-                        </TableCell>
-                        <TableCell>{client.shopName || "-"}</TableCell>
-                        <TableCell>
-                          <Badge className={
-                            client.status === "active" ? "bg-green-500" :
-                            client.status === "pending" ? "bg-yellow-500" : "bg-red-500"
-                          }>
-                            {client.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {client.lastActive ? new Date(client.lastActive).toLocaleDateString() : "Never"}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="sm">
-                            <IconMail className="h-4 w-4" />
-                          </Button>
+                    {clients.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                          No clients found
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ) : (
+                      clients.map((client) => (
+                        <TableRow key={client.id}>
+                          <TableCell className="font-medium">{client.name}</TableCell>
+                          <TableCell>{client.email}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{client.role}</Badge>
+                          </TableCell>
+                          <TableCell>{client.shopName || "-"}</TableCell>
+                          <TableCell>
+                            <Badge className={
+                              client.status === "active" ? "bg-green-500" :
+                              client.status === "pending" ? "bg-yellow-500" : "bg-red-500"
+                            }>
+                              {client.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {client.lastActive ? new Date(client.lastActive).toLocaleDateString() : "Never"}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button variant="ghost" size="sm">
+                              <IconMail className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </div>

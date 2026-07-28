@@ -86,8 +86,8 @@ export default function ShopOwnerDashboard() {
         ])
 
         setRecentOrders(
-          sales.slice(0, 5).map((s: any) => ({
-            id: s.invoiceNo || `#ORD-${String(s.id).slice(0, 3).toUpperCase()}`,
+          sales.slice(0, 5).map((s: any, i: number) => ({
+            id: s.invoiceNo || `#ORD-${s.id || i}`,
             customer: s.customerName || s.customer || "Unknown",
             amount: formatMK(s.total || s.amount || 0),
             status: s.status === "completed" ? "Delivered" : s.status === "pending" ? "Pending" : s.status === "shipped" ? "Shipped" : "Processing",

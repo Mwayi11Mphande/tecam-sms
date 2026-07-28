@@ -111,9 +111,16 @@ export default function ShopItemsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [stockFilter, setStockFilter] = useState<string>("all")
 
+  const categoryOptions = useMemo(() => {
+    return ["all", ...Array.from(new Set(products.map(p => p.category).filter(Boolean)))]
+  }, [products])
+
   const categories = useMemo(() => {
-    const uniqueCategories = Array.from(new Set(products.map(p => p.category).filter(Boolean)))
-    return ["all", ...uniqueCategories]
+    return products
+      .map(p => p.category)
+      .filter(Boolean)
+      .filter((v, i, a) => a.indexOf(v) === i)
+      .map(name => ({ id: name, name, createdAt: "" }))
   }, [products])
 
   const statuses = useMemo(() => {
@@ -371,7 +378,7 @@ export default function ShopItemsPage() {
                       </div>
                     </SelectTrigger>
                     <SelectContent>
-                      {categories.map((category) => (
+                      {categoryOptions.map((category) => (
                         <SelectItem key={category} value={category}>
                           {category === "all" ? "All Categories" : category}
                         </SelectItem>
@@ -597,6 +604,7 @@ export default function ShopItemsPage() {
 
       <AddProductModal
         isOpen={isAddProductModalOpen}
+        categories={categories}
         onClose={() => setIsAddProductModalOpen(false)}
         onAddProduct={handleAddProduct}
       />

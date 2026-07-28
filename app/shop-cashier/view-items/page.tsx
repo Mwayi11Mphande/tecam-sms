@@ -10,16 +10,11 @@ import { SearchContainer } from "@/components/dashboard/search/search"
 import { ShopItemsTable } from "@/components/table/view-items"
 import { productService } from "@/lib/services/product.service"
 import { categoryService } from "@/lib/services/category.service"
+import { Product } from "@/lib/api/types"
 
-type ProductItem = {
-  id: number;
-  name: string;
-  sku: string;
+type ProductItem = Product & {
   category: string;
-  price: string;
-  cost: string;
-  stock: number;
-  status: string;
+  stockStatus: string;
   description?: string;
   supplier?: string;
 }
@@ -48,14 +43,21 @@ export default function ViewShopItems() {
         const categoriesList = Array.isArray(categoriesRes) ? categoriesRes : (categoriesRes.data || [])
         console.log("productsList length:", productsList.length)
         const mappedProducts: ProductItem[] = productsList.map((p: any) => ({
-          id: p.id,
+          id: String(p.id),
           name: p.name || "",
           sku: p.sku || "",
+          price: Number(p.price) || 0,
+          cost: Number(p.cost) || 0,
+          stockQty: p.stockQty ?? p.stock ?? 0,
+          lowStockThreshold: p.lowStockThreshold ?? 10,
+          shopId: String(p.shopId ?? ""),
+          categoryId: String(p.categoryId ?? ""),
+          status: p.status || "ACTIVE",
+          createdAt: p.createdAt || new Date().toISOString(),
+          updatedAt: p.updatedAt || new Date().toISOString(),
+          deletedAt: p.deletedAt ?? null,
           category: (p.category?.name) || categoriesList.find((c: any) => c.id === p.categoryId)?.name || "",
-          price: p.price != null ? `Mk ${Number(p.price).toLocaleString()}` : "Mk 0",
-          cost: p.cost != null ? `Mk ${Number(p.cost).toLocaleString()}` : "Mk 0",
-          stock: p.stockQty ?? p.stock ?? 0,
-          status: (p.stockQty ?? p.stock ?? 0) === 0 ? "Out of Stock" : (p.stockQty ?? p.stock ?? 0) < 20 ? "Low Stock" : "In Stock",
+          stockStatus: (p.stockQty ?? p.stock ?? 0) === 0 ? "Out of Stock" : (p.stockQty ?? p.stock ?? 0) <= (p.lowStockThreshold ?? 10) ? "Low Stock" : "In Stock",
           description: p.description,
           supplier: p.supplier
         }))
@@ -75,7 +77,7 @@ export default function ViewShopItems() {
   }, [products])
 
   const statuses = useMemo(() => {
-    return [...new Set(products.map(item => item.status))].filter(Boolean)
+    return [...new Set(products.map(item => item.stockStatus))].filter(Boolean)
   }, [products])
 
   // Filter products
@@ -86,16 +88,16 @@ export default function ViewShopItems() {
         item.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.category?.toLowerCase().includes(searchTerm.toLowerCase())
 
-      const matchesStatus = statusFilter === "all" || item.status === statusFilter
+      const matchesStatus = statusFilter === "all" || item.stockStatus === statusFilter
       const matchesCategory = categoryFilter === "all" || item.category === categoryFilter
 
       let matchesStock = true
       if (stockFilter === "inStock") {
-        matchesStock = item.stock > 0
+        matchesStock = item.stockQty > 0
       } else if (stockFilter === "lowStock") {
-        matchesStock = item.stock > 0 && item.stock < 20
+        matchesStock = item.stockQty > 0 && item.stockQty <= item.lowStockThreshold
       } else if (stockFilter === "outOfStock") {
-        matchesStock = item.stock === 0
+        matchesStock = item.stockQty === 0
       }
 
       return matchesSearch && matchesStatus && matchesCategory && matchesStock
@@ -160,7 +162,7 @@ export default function ViewShopItems() {
             <CardContent className="pt-6">
               <p className="text-sm text-muted-foreground">In Stock</p>
               <h3 className="text-2xl font-bold text-foreground">
-                {products.filter(p => p.status === "In Stock").length}
+                {products.filter(p => p.stockStatus === "In Stock").length}
               </h3>
             </CardContent>
           </Card>
@@ -169,7 +171,7 @@ export default function ViewShopItems() {
             <CardContent className="pt-6">
               <p className="text-sm text-muted-foreground">Low Stock</p>
               <h3 className="text-2xl font-bold text-foreground">
-                {products.filter(p => p.status === "Low Stock").length}
+                {products.filter(p => p.stockStatus === "Low Stock").length}
               </h3>
             </CardContent>
           </Card>
@@ -178,7 +180,7 @@ export default function ViewShopItems() {
             <CardContent className="pt-6">
               <p className="text-sm text-muted-foreground">Out of Stock</p>
               <h3 className="text-2xl font-bold text-foreground">
-                {products.filter(p => p.status === "Out of Stock").length}
+                {products.filter(p => p.stockStatus === "Out of Stock").length}
               </h3>
             </CardContent>
           </Card>
@@ -188,8 +190,7 @@ export default function ViewShopItems() {
               <p className="text-sm text-muted-foreground">Total Value</p>
               <h3 className="text-2xl font-bold text-foreground">
                 Mk {products.reduce((sum, item) => {
-                  const price = parseFloat(item.price.replace(/[^0-9.]/g, '')) || 0
-                  return sum + (price * item.stock)
+                  return sum + (item.price * item.stockQty)
                 }, 0).toLocaleString()}
               </h3>
             </CardContent>
